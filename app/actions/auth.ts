@@ -19,6 +19,7 @@ const signUpSchema = z.object({
 });
 
 export async function signUp(
+  callbackUrl: string,
   _prevState: AuthActionState,
   formData: FormData,
 ): Promise<AuthActionState> {
@@ -40,7 +41,7 @@ export async function signUp(
   const passwordHash = await bcrypt.hash(password, 10);
   await prisma.user.create({ data: { name, email, passwordHash } });
 
-  return signInWithCredentials(email, password);
+  return signInWithCredentials(email, password, callbackUrl);
 }
 
 const signInSchema = z.object({
@@ -49,6 +50,7 @@ const signInSchema = z.object({
 });
 
 export async function signInAction(
+  callbackUrl: string,
   _prevState: AuthActionState,
   formData: FormData,
 ): Promise<AuthActionState> {
@@ -60,18 +62,19 @@ export async function signInAction(
     return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
   }
 
-  return signInWithCredentials(parsed.data.email, parsed.data.password);
+  return signInWithCredentials(parsed.data.email, parsed.data.password, callbackUrl);
 }
 
 async function signInWithCredentials(
   email: string,
   password: string,
+  redirectTo: string,
 ): Promise<AuthActionState> {
   try {
     await signIn("credentials", {
       email,
       password,
-      redirectTo: "/organizer",
+      redirectTo,
     });
   } catch (error) {
     if (error instanceof AuthError) {

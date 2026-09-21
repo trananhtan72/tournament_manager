@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { eventTypeLabels } from "@/lib/eventLabels";
 import { registrationIsOpen } from "@/lib/registrationDeadline";
 import { ActionForm } from "@/components/ActionForm";
+import { playerName } from "@/lib/playerDisplay";
 import {
   confirmPartnerInvite,
   declinePartnerInvite,
@@ -83,7 +84,8 @@ export default async function DashboardPage() {
                     </span>
                   </div>
                   <p className="text-sm text-slate-700 dark:text-slate-300">
-                    {initiator?.user.name} invited you to be their partner.
+                    {initiator ? playerName(initiator) : "Someone"} invited you to be their
+                    partner.
                   </p>
                   <div className="flex gap-2">
                     <ActionForm
@@ -138,7 +140,7 @@ export default async function DashboardPage() {
                     </span>
                   </div>
                   <p className="text-sm text-slate-700 dark:text-slate-300">
-                    {entryStatusText(ep.entry.status, ep.role, other?.user.name)}
+                    {entryStatusText(ep.entry.status, ep.role, other ? playerName(other) : undefined)}
                   </p>
                   {registrationOpen && (
                     <div>

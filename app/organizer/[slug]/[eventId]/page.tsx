@@ -2,10 +2,12 @@ import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { eventTypeLabels, drawFormatLabels } from "@/lib/eventLabels";
+import { eventTypeLabels, drawFormatLabels, isDoublesEventType } from "@/lib/eventLabels";
+import { playerName as getPlayerName } from "@/lib/playerDisplay";
 import { ActionForm } from "@/components/ActionForm";
 import { removeEntryAsOrganizer } from "@/app/actions/entries";
 import { PairEntriesForm } from "@/app/organizer/[slug]/[eventId]/PairEntriesForm";
+import { QuickAddEntryForm } from "@/app/organizer/[slug]/[eventId]/QuickAddEntryForm";
 
 export default async function ManageEventPage({
   params,
@@ -38,7 +40,7 @@ export default async function ManageEventPage({
 
   const pairCandidates = needsPartner.map((e) => ({
     entryId: e.id,
-    playerName: e.players[0]?.user.name ?? "Unknown",
+    playerName: e.players[0] ? getPlayerName(e.players[0]) : "Unknown",
   }));
 
   return (
@@ -68,7 +70,7 @@ export default async function ManageEventPage({
                 className="flex items-center justify-between rounded-md border border-slate-200 px-4 py-3 dark:border-slate-700"
               >
                 <span className="text-sm">
-                  {entry.players.map((p) => p.user.name).join(" / ")}
+                  {entry.players.map((p) => getPlayerName(p)).join(" / ")}
                 </span>
                 <ActionForm
                   action={removeEntryAsOrganizer.bind(null, entry.id)}
@@ -98,7 +100,8 @@ export default async function ManageEventPage({
                   className="flex items-center justify-between rounded-md border border-slate-200 px-4 py-3 dark:border-slate-700"
                 >
                   <span className="text-sm">
-                    {initiator?.user.name} → invited {partner?.user.name} (unconfirmed)
+                    {initiator ? getPlayerName(initiator) : "Unknown"} → invited{" "}
+                    {partner ? getPlayerName(partner) : "Unknown"} (unconfirmed)
                   </span>
                   <ActionForm
                     action={removeEntryAsOrganizer.bind(null, entry.id)}
@@ -126,7 +129,9 @@ export default async function ManageEventPage({
                   key={entry.id}
                   className="flex items-center justify-between rounded-md border border-slate-200 px-4 py-3 dark:border-slate-700"
                 >
-                  <span className="text-sm">{entry.players[0]?.user.name}</span>
+                  <span className="text-sm">
+                    {entry.players[0] ? getPlayerName(entry.players[0]) : "Unknown"}
+                  </span>
                   <ActionForm
                     action={removeEntryAsOrganizer.bind(null, entry.id)}
                     variant="danger"
@@ -142,6 +147,15 @@ export default async function ManageEventPage({
             )}
           </>
         )}
+      </section>
+
+      <section className="flex flex-col gap-3 border-t border-slate-200 pt-6 dark:border-slate-800">
+        <h2 className="text-lg font-semibold">Quick add entry</h2>
+        <p className="text-sm text-slate-500">
+          For in-person or cash registrations. Leave email blank to add a player without an
+          account.
+        </p>
+        <QuickAddEntryForm eventId={event.id} isDoubles={isDoublesEventType(event.type)} />
       </section>
     </div>
   );

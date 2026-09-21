@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import {
   registerSingles,
   registerNeedsPartner,
@@ -21,7 +22,7 @@ export type MyEntryInfo = {
   status: "NEEDS_PARTNER" | "PENDING_PARTNER" | "CONFIRMED";
   myRole: "INITIATOR" | "PARTNER";
   myConfirmed: boolean;
-  otherPlayer: { name: string; email: string } | null;
+  otherPlayer: { name: string; email: string | null } | null;
 };
 
 function SinglesRegisterForm({ eventId }: { eventId: string }) {
@@ -130,9 +131,14 @@ export function EventRegistrationPanel({
   signedIn: boolean;
   myEntry: MyEntryInfo | null;
 }) {
+  const pathname = usePathname();
+
   if (!signedIn) {
     return (
-      <Link href="/signin" className="text-sm underline">
+      <Link
+        href={`/signin?callbackUrl=${encodeURIComponent(pathname)}`}
+        className="text-sm underline"
+      >
         Sign in to register
       </Link>
     );

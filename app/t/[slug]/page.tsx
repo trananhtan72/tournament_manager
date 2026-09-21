@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { eventTypeLabels, isDoublesEventType } from "@/lib/eventLabels";
 import { formatDate } from "@/lib/formatDate";
 import { registrationIsOpen } from "@/lib/registrationDeadline";
+import { playerName, playerEmail } from "@/lib/playerDisplay";
 import {
   EventRegistrationPanel,
   type MyEntryInfo,
@@ -43,7 +44,7 @@ export default async function TournamentPage({
       status: ep.entry.status,
       myRole: ep.role,
       myConfirmed: ep.confirmed,
-      otherPlayer: other ? { name: other.user.name, email: other.user.email } : null,
+      otherPlayer: other ? { name: playerName(other), email: playerEmail(other) } : null,
     });
   }
 

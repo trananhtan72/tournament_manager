@@ -7,13 +7,14 @@ datasource db {
 }
 
 model User {
-  id           String        @id @default(cuid())
-  name         String
-  email        String        @unique
-  passwordHash String
-  createdAt    DateTime      @default(now())
-  tournaments  Tournament[]
-  entryPlayers EntryPlayer[]
+  id            String         @id @default(cuid())
+  name          String
+  email         String         @unique
+  passwordHash  String
+  createdAt     DateTime       @default(now())
+  tournaments   Tournament[]
+  entryPlayers  EntryPlayer[]
+  notifications Notification[]
 }
 
 enum EventType {
@@ -81,16 +82,31 @@ model Entry {
   updatedAt DateTime      @updatedAt
 }
 
+// A player in an entry is either a registered User (userId set) or a
+// walk-in added directly by the organizer with just a name (guestName set).
 model EntryPlayer {
   id        String          @id @default(cuid())
   entryId   String
   entry     Entry           @relation(fields: [entryId], references: [id], onDelete: Cascade)
   eventId   String
-  userId    String
-  user      User            @relation(fields: [userId], references: [id])
+  userId    String?
+  user      User?           @relation(fields: [userId], references: [id])
+  guestName String?
   role      EntryPlayerRole
   confirmed Boolean         @default(true)
   createdAt DateTime        @default(now())
 
   @@unique([eventId, userId])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  message   String
+  link      String?
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId, read])
 }

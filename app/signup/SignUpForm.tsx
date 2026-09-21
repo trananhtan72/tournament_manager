@@ -2,34 +2,33 @@
 
 import { useActionState, useState } from "react";
 import Link from "next/link";
-import { signInAction, type AuthActionState } from "@/app/actions/auth";
+import { signUp, type AuthActionState } from "@/app/actions/auth";
 import { TextField } from "@/components/TextField";
 import { SubmitButton } from "@/components/SubmitButton";
 import { FormError } from "@/components/FormError";
 
 const initialState: AuthActionState = {};
 
-export function SignInForm({
-  sessionExpired,
-  callbackUrl,
-}: {
-  sessionExpired: boolean;
-  callbackUrl: string;
-}) {
-  const action = signInAction.bind(null, callbackUrl);
+export function SignUpForm({ callbackUrl }: { callbackUrl: string }) {
+  const action = signUp.bind(null, callbackUrl);
   const [state, formAction] = useActionState(action, initialState);
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
   return (
     <div className="mx-auto max-w-sm">
-      <h1 className="mb-6 text-xl font-semibold">Sign in</h1>
-      {sessionExpired && (
-        <p className="mb-4 text-sm text-amber-600 dark:text-amber-400">
-          Your session is no longer valid. Please sign in again.
-        </p>
-      )}
+      <h1 className="mb-6 text-xl font-semibold">Create an account</h1>
       <form action={formAction} className="flex flex-col gap-4">
+        <TextField
+          label="Name"
+          name="name"
+          type="text"
+          required
+          autoComplete="name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+        />
         <TextField
           label="Email"
           name="email"
@@ -44,20 +43,21 @@ export function SignInForm({
           name="password"
           type="password"
           required
-          autoComplete="current-password"
+          minLength={8}
+          autoComplete="new-password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
         />
         <FormError message={state.error} />
-        <SubmitButton>Sign in</SubmitButton>
+        <SubmitButton>Sign up</SubmitButton>
       </form>
       <p className="mt-4 text-sm text-slate-600 dark:text-slate-400">
-        Need an account?{" "}
+        Already have an account?{" "}
         <Link
-          href={`/signup?callbackUrl=${encodeURIComponent(callbackUrl)}`}
+          href={`/signin?callbackUrl=${encodeURIComponent(callbackUrl)}`}
           className="underline"
         >
-          Sign up
+          Sign in
         </Link>
       </p>
     </div>
