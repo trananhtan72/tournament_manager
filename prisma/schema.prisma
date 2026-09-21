@@ -1,0 +1,59 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id           String       @id @default(cuid())
+  name         String
+  email        String       @unique
+  passwordHash String
+  createdAt    DateTime     @default(now())
+  tournaments  Tournament[]
+}
+
+enum EventType {
+  MS
+  WS
+  MD
+  WD
+  XD
+}
+
+enum DrawFormat {
+  SINGLE_ELIMINATION
+  ROUND_ROBIN
+  POOLS_KNOCKOUT
+}
+
+model Tournament {
+  id                   String   @id @default(cuid())
+  slug                 String   @unique
+  name                 String
+  venue                String
+  startDate            DateTime
+  endDate              DateTime
+  registrationDeadline DateTime
+  organizerId          String
+  organizer            User     @relation(fields: [organizerId], references: [id])
+  events               Event[]
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  @@index([organizerId])
+}
+
+model Event {
+  id           String     @id @default(cuid())
+  tournamentId String
+  tournament   Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  type         EventType
+  drawFormat   DrawFormat @default(SINGLE_ELIMINATION)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  @@unique([tournamentId, type])
+}
