@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { EditTournamentForm } from "@/app/organizer/[slug]/EditTournamentForm";
 import { AddEventForm } from "@/app/organizer/[slug]/AddEventForm";
 import { EventRow } from "@/app/organizer/[slug]/EventRow";
-import { ConfirmDeleteForm } from "@/components/ConfirmDeleteForm";
+import { ActionForm } from "@/components/ActionForm";
 import { deleteTournament } from "@/app/actions/tournaments";
 
 export default async function OrganizerTournamentPage({
@@ -62,6 +62,7 @@ export default async function OrganizerTournamentPage({
             {tournament.events.map((event) => (
               <EventRow
                 key={`${event.id}:${event.type}:${event.drawFormat}`}
+                tournamentSlug={tournament.slug}
                 eventId={event.id}
                 type={event.type}
                 drawFormat={event.drawFormat}
@@ -76,10 +77,12 @@ export default async function OrganizerTournamentPage({
         <h2 className="text-lg font-semibold text-red-600 dark:text-red-400">
           Danger zone
         </h2>
-        <ConfirmDeleteForm
+        <ActionForm
           action={deleteWithId}
-          confirmMessage={`Delete "${tournament.name}"? This will remove all its events and cannot be undone.`}
+          variant="danger"
           label="Delete tournament"
+          pendingLabel="Deleting…"
+          confirmMessage={`Delete "${tournament.name}"? This will remove all its events and cannot be undone.`}
         />
       </section>
     </div>

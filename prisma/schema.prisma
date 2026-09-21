@@ -7,12 +7,13 @@ datasource db {
 }
 
 model User {
-  id           String       @id @default(cuid())
+  id           String        @id @default(cuid())
   name         String
-  email        String       @unique
+  email        String        @unique
   passwordHash String
-  createdAt    DateTime     @default(now())
+  createdAt    DateTime      @default(now())
   tournaments  Tournament[]
+  entryPlayers EntryPlayer[]
 }
 
 enum EventType {
@@ -52,8 +53,44 @@ model Event {
   tournament   Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
   type         EventType
   drawFormat   DrawFormat @default(SINGLE_ELIMINATION)
+  entries      Entry[]
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
 
   @@unique([tournamentId, type])
+}
+
+enum EntryStatus {
+  NEEDS_PARTNER
+  PENDING_PARTNER
+  CONFIRMED
+}
+
+enum EntryPlayerRole {
+  INITIATOR
+  PARTNER
+}
+
+model Entry {
+  id        String        @id @default(cuid())
+  eventId   String
+  event     Event         @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  status    EntryStatus
+  players   EntryPlayer[]
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+}
+
+model EntryPlayer {
+  id        String          @id @default(cuid())
+  entryId   String
+  entry     Entry           @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  eventId   String
+  userId    String
+  user      User            @relation(fields: [userId], references: [id])
+  role      EntryPlayerRole
+  confirmed Boolean         @default(true)
+  createdAt DateTime        @default(now())
+
+  @@unique([eventId, userId])
 }

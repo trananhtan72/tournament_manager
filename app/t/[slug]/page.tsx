@@ -1,7 +1,13 @@
 import { notFound } from "next/navigation";
+import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { eventTypeLabels } from "@/lib/eventLabels";
+import { eventTypeLabels, isDoublesEventType } from "@/lib/eventLabels";
 import { formatDate } from "@/lib/formatDate";
+import { registrationIsOpen } from "@/lib/registrationDeadline";
+import {
+  EventRegistrationPanel,
+  type MyEntryInfo,
+} from "@/app/t/[slug]/EventRegistrationPanel";
 
 export default async function TournamentPage({
   params,
@@ -14,6 +20,34 @@ export default async function TournamentPage({
   });
 
   if (!tournament) notFound();
+
+  const session = await auth();
+  const userId = session?.user?.id;
+
+  const myEntryPlayers = userId
+    ? await prisma.entryPlayer.findMany({
+        where: { userId, entry: { event: { tournamentId: tournament.id } } },
+        include: {
+          entry: {
+            include: { players: { include: { user: true } } },
+          },
+        },
+      })
+    : [];
+
+  const myEntryByEventId = new Map<string, MyEntryInfo>();
+  for (const ep of myEntryPlayers) {
+    const other = ep.entry.players.find((p) => p.userId !== userId);
+    myEntryByEventId.set(ep.entry.eventId, {
+      entryId: ep.entry.id,
+      status: ep.entry.status,
+      myRole: ep.role,
+      myConfirmed: ep.confirmed,
+      otherPlayer: other ? { name: other.user.name, email: other.user.email } : null,
+    });
+  }
+
+  const registrationOpen = registrationIsOpen(tournament.registrationDeadline);
 
   return (
     <div className="flex flex-col gap-6">
@@ -35,13 +69,20 @@ export default async function TournamentPage({
             No events have been added yet.
           </p>
         ) : (
-          <ul className="flex flex-col gap-2">
+          <ul className="flex flex-col gap-3">
             {tournament.events.map((event) => (
               <li
                 key={event.id}
-                className="rounded-md border border-slate-200 px-4 py-3 dark:border-slate-700"
+                className="flex flex-col gap-3 rounded-md border border-slate-200 px-4 py-3 dark:border-slate-700"
               >
-                {eventTypeLabels[event.type]}
+                <span className="font-medium">{eventTypeLabels[event.type]}</span>
+                <EventRegistrationPanel
+                  eventId={event.id}
+                  isDoubles={isDoublesEventType(event.type)}
+                  registrationOpen={registrationOpen}
+                  signedIn={Boolean(userId)}
+                  myEntry={myEntryByEventId.get(event.id) ?? null}
+                />
               </li>
             ))}
           </ul>

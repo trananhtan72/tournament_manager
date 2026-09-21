@@ -3,9 +3,9 @@
 import { z } from "zod";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { slugify } from "@/lib/slugify";
+import { requireUserId } from "@/lib/session";
 
 export type TournamentActionState = { error?: string };
 
@@ -27,14 +27,6 @@ const tournamentSchema = z
     error: "Registration deadline must be on or before the start date",
     path: ["registrationDeadline"],
   });
-
-async function requireUserId() {
-  const session = await auth();
-  if (!session?.user?.id) {
-    redirect("/signin");
-  }
-  return session.user.id;
-}
 
 async function uniqueSlugFor(name: string) {
   const base = slugify(name) || "tournament";

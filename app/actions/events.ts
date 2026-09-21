@@ -4,8 +4,8 @@ import { z } from "zod";
 import { Prisma } from "@prisma/client";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { requireUserId } from "@/lib/session";
 
 export type EventActionState = { error?: string };
 
@@ -18,14 +18,6 @@ const eventSchema = z.object({
     { error: "Choose a draw format" },
   ),
 });
-
-async function requireUserId() {
-  const session = await auth();
-  if (!session?.user?.id) {
-    redirect("/signin");
-  }
-  return session.user.id;
-}
 
 async function requireOwnedTournament(tournamentId: string, userId: string) {
   const tournament = await prisma.tournament.findUnique({

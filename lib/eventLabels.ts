@@ -13,3 +13,9 @@ export const drawFormatLabels: Record<DrawFormat, string> = {
   ROUND_ROBIN: "Round robin",
   POOLS_KNOCKOUT: "Pools + knockout",
 };
+
+const DOUBLES_EVENT_TYPES = new Set<EventType>(["MD", "WD", "XD"]);
+
+export function isDoublesEventType(type: EventType): boolean {
+  return DOUBLES_EVENT_TYPES.has(type);
+}
