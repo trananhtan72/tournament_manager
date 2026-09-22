@@ -12,6 +12,7 @@ import { publishDraw, unpublishDraw } from "@/app/actions/draws";
 import { PairEntriesForm } from "@/app/organizer/[slug]/[eventId]/PairEntriesForm";
 import { QuickAddEntryForm } from "@/app/organizer/[slug]/[eventId]/QuickAddEntryForm";
 import { GenerateDrawForm } from "@/app/organizer/[slug]/[eventId]/GenerateDrawForm";
+import { SwapEntriesForm } from "@/app/organizer/[slug]/[eventId]/SwapEntriesForm";
 import { PrintDrawButton } from "@/components/PrintDrawButton";
 
 function entryLabel(entry: { players: { guestName: string | null; user: { name: string; email: string } | null }[] }) {
@@ -74,6 +75,15 @@ export default async function ManageEventPage({
 
   const unpublishWithId = unpublishDraw.bind(null, event.id);
   const publishWithId = publishDraw.bind(null, event.id);
+
+  const swapCandidates = event.matches
+    .filter((m) => m.round === 1)
+    .flatMap((m) => [m.entry1, m.entry2])
+    .filter((e): e is NonNullable<typeof e> => e !== null)
+    .map((e) => ({
+      entryId: e.id,
+      label: entryLabel(e) + (e.seed !== null ? ` [${e.seed}]` : ""),
+    }));
 
   return (
     <div className="flex flex-col gap-8">
@@ -239,6 +249,23 @@ export default async function ManageEventPage({
               )}
               {bracketMatches.length > 0 && <PrintDrawButton />}
             </div>
+
+            {swapCandidates.length >= 2 && (
+              <div className="flex flex-col gap-2 print:hidden">
+                <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                  Swap two entries
+                </h3>
+                <p className="text-sm text-slate-500">
+                  Fixes a placement without regenerating the whole draw. Only round-1 slots can be
+                  swapped.
+                </p>
+                <SwapEntriesForm
+                  eventId={event.id}
+                  candidates={swapCandidates}
+                  isPublished={event.drawPublished}
+                />
+              </div>
+            )}
           </>
         )}
       </section>
