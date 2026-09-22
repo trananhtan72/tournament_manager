@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import Link from "next/link";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { isDoublesCategory } from "@/lib/eventLabels";
@@ -76,7 +77,14 @@ export default async function TournamentPage({
                 key={event.id}
                 className="flex flex-col gap-3 rounded-md border border-slate-200 px-4 py-3 dark:border-slate-700"
               >
-                <span className="font-medium">{event.name}</span>
+                <div className="flex items-center justify-between">
+                  <span className="font-medium">{event.name}</span>
+                  {event.drawPublished && (
+                    <Link href={`/t/${slug}/${event.id}`} className="text-sm underline">
+                      View draw →
+                    </Link>
+                  )}
+                </div>
                 <EventRegistrationPanel
                   eventId={event.id}
                   isDoubles={isDoublesCategory(event.category)}

@@ -46,15 +46,17 @@ model Tournament {
 }
 
 model Event {
-  id           String        @id @default(cuid())
-  tournamentId String
-  tournament   Tournament    @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
-  name         String
-  category     EventCategory
-  drawFormat   DrawFormat    @default(SINGLE_ELIMINATION)
-  entries      Entry[]
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
+  id             String        @id @default(cuid())
+  tournamentId   String
+  tournament     Tournament    @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  name           String
+  category       EventCategory
+  drawFormat     DrawFormat    @default(SINGLE_ELIMINATION)
+  drawPublished  Boolean       @default(false)
+  entries        Entry[]
+  matches        Match[]
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
 
   @@unique([tournamentId, name])
 }
@@ -71,13 +73,19 @@ enum EntryPlayerRole {
 }
 
 model Entry {
-  id        String        @id @default(cuid())
-  eventId   String
-  event     Event         @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  status    EntryStatus
-  players   EntryPlayer[]
-  createdAt DateTime      @default(now())
-  updatedAt DateTime      @updatedAt
+  id                  String        @id @default(cuid())
+  eventId             String
+  event               Event         @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  status              EntryStatus
+  seed                Int?
+  players             EntryPlayer[]
+  matchesAsEntry1     Match[]       @relation("MatchEntry1")
+  matchesAsEntry2     Match[]       @relation("MatchEntry2")
+  matchesWon          Match[]       @relation("MatchWinner")
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+
+  @@unique([eventId, seed])
 }
 
 // A player in an entry is either a registered User (userId set) or a
@@ -95,6 +103,28 @@ model EntryPlayer {
   createdAt DateTime        @default(now())
 
   @@unique([eventId, userId])
+}
+
+// Round 1 = first round. Position is 0-indexed within a round. A round-1
+// match with no entry2 is a bye (entry1 auto-advances as winner). Matches in
+// later rounds start with null entries, filled in as earlier rounds resolve.
+model Match {
+  id        String   @id @default(cuid())
+  eventId   String
+  event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  round     Int
+  position  Int
+  entry1Id  String?
+  entry1    Entry?   @relation("MatchEntry1", fields: [entry1Id], references: [id])
+  entry2Id  String?
+  entry2    Entry?   @relation("MatchEntry2", fields: [entry2Id], references: [id])
+  winnerId  String?
+  winner    Entry?   @relation("MatchWinner", fields: [winnerId], references: [id])
+  isBye     Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([eventId, round, position])
 }
 
 model Notification {

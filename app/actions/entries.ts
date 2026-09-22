@@ -247,7 +247,19 @@ export async function withdrawEntry(entryId: string): Promise<void> {
   if (!registrationIsOpen(entry.event.tournament.registrationDeadline)) {
     throw new Error("Registration is closed; ask the organizer to withdraw this entry.");
   }
+  if (entry.event.drawPublished) {
+    throw new Error("The draw has been published; contact the organizer to withdraw.");
+  }
 
+  // If this entry is already placed in a (still-draft) draw, withdrawing
+  // would leave the bracket pointing at a deleted entry — clear the draft so
+  // the organizer can regenerate with the updated entry list.
+  const inDraftDraw = await prisma.match.count({
+    where: { eventId: entry.eventId, OR: [{ entry1Id: entryId }, { entry2Id: entryId }] },
+  });
+  if (inDraftDraw > 0) {
+    await prisma.match.deleteMany({ where: { eventId: entry.eventId } });
+  }
   await prisma.entry.delete({ where: { id: entryId } });
 
   const other = entry.players.find((p) => p.userId !== userId);
@@ -263,7 +275,11 @@ export async function withdrawEntry(entryId: string): Promise<void> {
   revalidatePath("/dashboard");
 }
 
-export async function removeEntryAsOrganizer(entryId: string): Promise<void> {
+export async function removeEntryAsOrganizer(
+  entryId: string,
+  _prevState: EntryActionState,
+  _formData: FormData,
+): Promise<EntryActionState> {
   const userId = await requireUserId();
 
   const entry = await prisma.entry.findUnique({
@@ -276,7 +292,16 @@ export async function removeEntryAsOrganizer(entryId: string): Promise<void> {
   if (!entry || entry.event.tournament.organizerId !== userId) {
     redirect("/organizer");
   }
+  if (entry.event.drawPublished) {
+    return { error: "Can't remove this entry — the draw has already been published." };
+  }
 
+  const inDraftDraw = await prisma.match.count({
+    where: { eventId: entry.eventId, OR: [{ entry1Id: entryId }, { entry2Id: entryId }] },
+  });
+  if (inDraftDraw > 0) {
+    await prisma.match.deleteMany({ where: { eventId: entry.eventId } });
+  }
   await prisma.entry.delete({ where: { id: entryId } });
 
   const notifiablePlayers = entry.players.filter(
@@ -294,6 +319,7 @@ export async function removeEntryAsOrganizer(entryId: string): Promise<void> {
 
   revalidatePath(`/organizer/${entry.event.tournament.slug}/${entry.eventId}`);
   revalidatePath(`/t/${entry.event.tournament.slug}`);
+  return {};
 }
 
 export async function pairEntries(

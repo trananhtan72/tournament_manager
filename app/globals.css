@@ -24,3 +24,33 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+@media print {
+  :root {
+    --background: #ffffff;
+    --foreground: #171717;
+  }
+
+  body * {
+    visibility: hidden;
+  }
+
+  #printable-draw,
+  #printable-draw * {
+    visibility: visible;
+  }
+
+  #printable-draw {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+  }
+
+  /* Most browsers strip background colors when printing unless the person
+     enables "Background graphics" in the print dialog. Force ours through so
+     the bracket doesn't depend on that setting. */
+  #printable-draw * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}

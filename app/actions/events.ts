@@ -101,6 +101,15 @@ export async function updateEvent(
     }
   }
 
+  if (parsed.data.drawFormat !== event.drawFormat) {
+    const matchCount = await prisma.match.count({ where: { eventId } });
+    if (matchCount > 0) {
+      return {
+        error: "Can't change the draw format — a draw has already been generated for this event.",
+      };
+    }
+  }
+
   try {
     await prisma.event.update({
       where: { id: eventId },
