@@ -7,7 +7,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireUserId } from "@/lib/session";
 import { registrationIsOpen } from "@/lib/registrationDeadline";
-import { isDoublesEventType, eventTypeLabels } from "@/lib/eventLabels";
+import { isDoublesCategory } from "@/lib/eventLabels";
 import { notify } from "@/lib/notify";
 import { playerName } from "@/lib/playerDisplay";
 
@@ -29,7 +29,7 @@ export async function registerSingles(
 
   const event = await getEventWithTournament(eventId);
   if (!event) return { error: "Event not found." };
-  if (isDoublesEventType(event.type)) return { error: "This event requires a partner." };
+  if (isDoublesCategory(event.category)) return { error: "This event requires a partner." };
   if (!registrationIsOpen(event.tournament.registrationDeadline)) {
     return { error: "Registration is closed for this tournament." };
   }
@@ -65,7 +65,7 @@ export async function registerNeedsPartner(
 
   const event = await getEventWithTournament(eventId);
   if (!event) return { error: "Event not found." };
-  if (!isDoublesEventType(event.type)) return { error: "This event doesn't take a partner." };
+  if (!isDoublesCategory(event.category)) return { error: "This event doesn't take a partner." };
   if (!registrationIsOpen(event.tournament.registrationDeadline)) {
     return { error: "Registration is closed for this tournament." };
   }
@@ -105,7 +105,7 @@ export async function registerWithPartner(
 
   const event = await getEventWithTournament(eventId);
   if (!event) return { error: "Event not found." };
-  if (!isDoublesEventType(event.type)) return { error: "This event doesn't take a partner." };
+  if (!isDoublesCategory(event.category)) return { error: "This event doesn't take a partner." };
   if (!registrationIsOpen(event.tournament.registrationDeadline)) {
     return { error: "Registration is closed for this tournament." };
   }
@@ -161,7 +161,7 @@ export async function registerWithPartner(
 
   await notify(
     partner.id,
-    `${me.name} invited you to be their partner for ${eventTypeLabels[event.type]} at ${event.tournament.name}.`,
+    `${me.name} invited you to be their partner for ${event.name} at ${event.tournament.name}.`,
     "/dashboard",
   );
 
@@ -202,7 +202,7 @@ export async function confirmPartnerInvite(entryId: string): Promise<void> {
   // quick-added guest), so initiator.userId is always set here.
   await notify(
     initiator.userId!,
-    `${playerName(me)} accepted your partner invitation for ${eventTypeLabels[entry.event.type]} at ${entry.event.tournament.name}.`,
+    `${playerName(me)} accepted your partner invitation for ${entry.event.name} at ${entry.event.tournament.name}.`,
     `/t/${entry.event.tournament.slug}`,
   );
 
@@ -222,7 +222,7 @@ export async function declinePartnerInvite(entryId: string): Promise<void> {
 
   await notify(
     initiator.userId!,
-    `${playerName(me)} declined your partner invitation for ${eventTypeLabels[entry.event.type]} at ${entry.event.tournament.name}. You're back to needing a partner.`,
+    `${playerName(me)} declined your partner invitation for ${entry.event.name} at ${entry.event.tournament.name}. You're back to needing a partner.`,
     `/t/${entry.event.tournament.slug}`,
   );
 
@@ -254,7 +254,7 @@ export async function withdrawEntry(entryId: string): Promise<void> {
   if (other?.userId && entry.status !== "PENDING_PARTNER") {
     await notify(
       other.userId,
-      `${playerName(me)} withdrew from ${eventTypeLabels[entry.event.type]} at ${entry.event.tournament.name}, so your entry was cancelled.`,
+      `${playerName(me)} withdrew from ${entry.event.name} at ${entry.event.tournament.name}, so your entry was cancelled.`,
       `/t/${entry.event.tournament.slug}`,
     );
   }
@@ -286,7 +286,7 @@ export async function removeEntryAsOrganizer(entryId: string): Promise<void> {
     notifiablePlayers.map((p) =>
       notify(
         p.userId,
-        `Your entry for ${eventTypeLabels[entry.event.type]} at ${entry.event.tournament.name} was removed by the organizer.`,
+        `Your entry for ${entry.event.name} at ${entry.event.tournament.name} was removed by the organizer.`,
         `/t/${entry.event.tournament.slug}`,
       ),
     ),
@@ -342,13 +342,12 @@ export async function pairEntries(
     prisma.entry.delete({ where: { id: entryIdB } }),
   ]);
 
-  const eventLabel = eventTypeLabels[event.type];
   const notifications: Promise<void>[] = [];
   if (a.players[0].userId) {
     notifications.push(
       notify(
         a.players[0].userId,
-        `You've been paired with ${playerName(b.players[0])} for ${eventLabel} at ${event.tournament.name}.`,
+        `You've been paired with ${playerName(b.players[0])} for ${event.name} at ${event.tournament.name}.`,
         `/t/${event.tournament.slug}`,
       ),
     );
@@ -357,7 +356,7 @@ export async function pairEntries(
     notifications.push(
       notify(
         b.players[0].userId,
-        `You've been paired with ${playerName(a.players[0])} for ${eventLabel} at ${event.tournament.name}.`,
+        `You've been paired with ${playerName(a.players[0])} for ${event.name} at ${event.tournament.name}.`,
         `/t/${event.tournament.slug}`,
       ),
     );
@@ -414,7 +413,7 @@ export async function quickAddEntry(
   );
   if (!player1.ok) return { error: player1.error };
 
-  const doubles = isDoublesEventType(event.type);
+  const doubles = isDoublesCategory(event.category);
   let player2: Extract<PlayerSlotResolution, { ok: true }> | null = null;
   if (doubles) {
     const player2Name = String(formData.get("player2Name") ?? "").trim();

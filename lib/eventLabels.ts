@@ -1,12 +1,4 @@
-import type { DrawFormat, EventType } from "@prisma/client";
-
-export const eventTypeLabels: Record<EventType, string> = {
-  MS: "Men's Singles",
-  WS: "Women's Singles",
-  MD: "Men's Doubles",
-  WD: "Women's Doubles",
-  XD: "Mixed Doubles",
-};
+import type { DrawFormat, EventCategory } from "@prisma/client";
 
 export const drawFormatLabels: Record<DrawFormat, string> = {
   SINGLE_ELIMINATION: "Single elimination",
@@ -14,8 +6,23 @@ export const drawFormatLabels: Record<DrawFormat, string> = {
   POOLS_KNOCKOUT: "Pools + knockout",
 };
 
-const DOUBLES_EVENT_TYPES = new Set<EventType>(["MD", "WD", "XD"]);
+export const categoryLabels: Record<EventCategory, string> = {
+  SINGLES: "Singles",
+  DOUBLES: "Doubles",
+};
 
-export function isDoublesEventType(type: EventType): boolean {
-  return DOUBLES_EVENT_TYPES.has(type);
+export function isDoublesCategory(category: EventCategory): boolean {
+  return category === "DOUBLES";
 }
+
+// Standard event presets from the spec. Organizers can also pick "Other" to
+// name and categorize an event themselves (age divisions, senior events, etc).
+export const EVENT_NAME_PRESETS: { name: string; category: EventCategory }[] = [
+  { name: "Men's Singles", category: "SINGLES" },
+  { name: "Women's Singles", category: "SINGLES" },
+  { name: "Men's Doubles", category: "DOUBLES" },
+  { name: "Women's Doubles", category: "DOUBLES" },
+  { name: "Mixed Doubles", category: "DOUBLES" },
+];
+
+export const OTHER_EVENT_NAME = "__OTHER__";

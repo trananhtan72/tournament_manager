@@ -10,8 +10,9 @@ import { requireUserId } from "@/lib/session";
 export type EventActionState = { error?: string };
 
 const eventSchema = z.object({
-  type: z.enum(["MS", "WS", "MD", "WD", "XD"], {
-    error: "Choose an event type",
+  name: z.string().trim().min(1, "Enter an event name").max(100),
+  category: z.enum(["SINGLES", "DOUBLES"], {
+    error: "Choose a category",
   }),
   drawFormat: z.enum(
     ["SINGLE_ELIMINATION", "ROUND_ROBIN", "POOLS_KNOCKOUT"],
@@ -41,7 +42,8 @@ export async function createEvent(
   }
 
   const parsed = eventSchema.safeParse({
-    type: formData.get("type"),
+    name: formData.get("name"),
+    category: formData.get("category"),
     drawFormat: formData.get("drawFormat"),
   });
   if (!parsed.success) {
@@ -57,7 +59,7 @@ export async function createEvent(
       error instanceof Prisma.PrismaClientKnownRequestError &&
       error.code === "P2002"
     ) {
-      return { error: "This tournament already has that event." };
+      return { error: "This tournament already has an event with that name." };
     }
     throw error;
   }
@@ -82,11 +84,21 @@ export async function updateEvent(
   }
 
   const parsed = eventSchema.safeParse({
-    type: formData.get("type"),
+    name: formData.get("name"),
+    category: formData.get("category"),
     drawFormat: formData.get("drawFormat"),
   });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+  }
+
+  if (parsed.data.category !== event.category) {
+    const entryCount = await prisma.entry.count({ where: { eventId } });
+    if (entryCount > 0) {
+      return {
+        error: `Can't change singles/doubles — this event already has ${entryCount} ${entryCount === 1 ? "entry" : "entries"}. Remove them first or create a new event instead.`,
+      };
+    }
   }
 
   try {
@@ -99,7 +111,7 @@ export async function updateEvent(
       error instanceof Prisma.PrismaClientKnownRequestError &&
       error.code === "P2002"
     ) {
-      return { error: "This tournament already has that event." };
+      return { error: "This tournament already has an event with that name." };
     }
     throw error;
   }

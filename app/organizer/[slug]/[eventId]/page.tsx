@@ -2,7 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { eventTypeLabels, drawFormatLabels, isDoublesEventType } from "@/lib/eventLabels";
+import { drawFormatLabels, isDoublesCategory } from "@/lib/eventLabels";
 import { playerName as getPlayerName } from "@/lib/playerDisplay";
 import { ActionForm } from "@/components/ActionForm";
 import { removeEntryAsOrganizer } from "@/app/actions/entries";
@@ -52,7 +52,7 @@ export default async function ManageEventPage({
       </div>
 
       <div>
-        <h1 className="text-xl font-semibold">{eventTypeLabels[event.type]}</h1>
+        <h1 className="text-xl font-semibold">{event.name}</h1>
         <p className="text-sm text-slate-600 dark:text-slate-400">
           Draw format: {drawFormatLabels[event.drawFormat]}
         </p>
@@ -155,7 +155,7 @@ export default async function ManageEventPage({
           For in-person or cash registrations. Leave email blank to add a player without an
           account.
         </p>
-        <QuickAddEntryForm eventId={event.id} isDoubles={isDoublesEventType(event.type)} />
+        <QuickAddEntryForm eventId={event.id} isDoubles={isDoublesCategory(event.category)} />
       </section>
     </div>
   );

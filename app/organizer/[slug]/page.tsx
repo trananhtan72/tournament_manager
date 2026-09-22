@@ -20,7 +20,12 @@ export default async function OrganizerTournamentPage({
 
   const tournament = await prisma.tournament.findUnique({
     where: { slug },
-    include: { events: { orderBy: { type: "asc" } } },
+    include: {
+      events: {
+        include: { _count: { select: { entries: true } } },
+        orderBy: { name: "asc" },
+      },
+    },
   });
 
   if (!tournament || tournament.organizerId !== session.user.id) {
@@ -61,11 +66,13 @@ export default async function OrganizerTournamentPage({
           <ul className="flex flex-col gap-3">
             {tournament.events.map((event) => (
               <EventRow
-                key={`${event.id}:${event.type}:${event.drawFormat}`}
+                key={`${event.id}:${event.name}:${event.category}:${event.drawFormat}`}
                 tournamentSlug={tournament.slug}
                 eventId={event.id}
-                type={event.type}
+                name={event.name}
+                category={event.category}
                 drawFormat={event.drawFormat}
+                entryCount={event._count.entries}
               />
             ))}
           </ul>

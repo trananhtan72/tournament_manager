@@ -2,7 +2,6 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { eventTypeLabels } from "@/lib/eventLabels";
 import { registrationIsOpen } from "@/lib/registrationDeadline";
 import { ActionForm } from "@/components/ActionForm";
 import { playerName } from "@/lib/playerDisplay";
@@ -80,7 +79,7 @@ export default async function DashboardPage() {
                     </Link>
                     <span className="text-sm text-slate-600 dark:text-slate-400">
                       {" "}
-                      · {eventTypeLabels[ep.entry.event.type]}
+                      · {ep.entry.event.name}
                     </span>
                   </div>
                   <p className="text-sm text-slate-700 dark:text-slate-300">
@@ -136,7 +135,7 @@ export default async function DashboardPage() {
                     </Link>
                     <span className="text-sm text-slate-600 dark:text-slate-400">
                       {" "}
-                      · {eventTypeLabels[ep.entry.event.type]}
+                      · {ep.entry.event.name}
                     </span>
                   </div>
                   <p className="text-sm text-slate-700 dark:text-slate-300">

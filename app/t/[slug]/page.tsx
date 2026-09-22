@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { eventTypeLabels, isDoublesEventType } from "@/lib/eventLabels";
+import { isDoublesCategory } from "@/lib/eventLabels";
 import { formatDate } from "@/lib/formatDate";
 import { registrationIsOpen } from "@/lib/registrationDeadline";
 import { playerName, playerEmail } from "@/lib/playerDisplay";
@@ -17,7 +17,7 @@ export default async function TournamentPage({
 
   const tournament = await prisma.tournament.findUnique({
     where: { slug },
-    include: { events: { orderBy: { type: "asc" } } },
+    include: { events: { orderBy: { name: "asc" } } },
   });
 
   if (!tournament) notFound();
@@ -76,10 +76,10 @@ export default async function TournamentPage({
                 key={event.id}
                 className="flex flex-col gap-3 rounded-md border border-slate-200 px-4 py-3 dark:border-slate-700"
               >
-                <span className="font-medium">{eventTypeLabels[event.type]}</span>
+                <span className="font-medium">{event.name}</span>
                 <EventRegistrationPanel
                   eventId={event.id}
-                  isDoubles={isDoublesEventType(event.type)}
+                  isDoubles={isDoublesCategory(event.category)}
                   registrationOpen={registrationOpen}
                   signedIn={Boolean(userId)}
                   myEntry={myEntryByEventId.get(event.id) ?? null}
