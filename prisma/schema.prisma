@@ -105,26 +105,48 @@ model EntryPlayer {
   @@unique([eventId, userId])
 }
 
+enum MatchStatus {
+  COMPLETED
+  WALKOVER
+  RETIRED
+}
+
 // Round 1 = first round. Position is 0-indexed within a round. A round-1
 // match with no entry2 is a bye (entry1 auto-advances as winner). Matches in
-// later rounds start with null entries, filled in as earlier rounds resolve.
+// later rounds start with null entries, filled in as earlier rounds resolve,
+// either by a bye (isBye) or by a recorded result (status + winnerId) on the
+// feeder match. Editing an already-recorded result cascades: any later match
+// whose entries depended on the old winner has its own result cleared too.
 model Match {
-  id        String   @id @default(cuid())
+  id        String       @id @default(cuid())
   eventId   String
-  event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  event     Event        @relation(fields: [eventId], references: [id], onDelete: Cascade)
   round     Int
   position  Int
   entry1Id  String?
-  entry1    Entry?   @relation("MatchEntry1", fields: [entry1Id], references: [id])
+  entry1    Entry?       @relation("MatchEntry1", fields: [entry1Id], references: [id])
   entry2Id  String?
-  entry2    Entry?   @relation("MatchEntry2", fields: [entry2Id], references: [id])
+  entry2    Entry?       @relation("MatchEntry2", fields: [entry2Id], references: [id])
   winnerId  String?
-  winner    Entry?   @relation("MatchWinner", fields: [winnerId], references: [id])
-  isBye     Boolean  @default(false)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  winner    Entry?       @relation("MatchWinner", fields: [winnerId], references: [id])
+  isBye     Boolean      @default(false)
+  status    MatchStatus?
+  games     MatchGame[]
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
 
   @@unique([eventId, round, position])
+}
+
+model MatchGame {
+  id          String @id @default(cuid())
+  matchId     String
+  match       Match  @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  gameNumber  Int
+  entry1Score Int
+  entry2Score Int
+
+  @@unique([matchId, gameNumber])
 }
 
 model Notification {

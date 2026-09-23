@@ -4,8 +4,10 @@ import {
   buildSeedTemplate,
   nextPowerOfTwo,
   roundName,
+  recomputeAdvancement,
   type SeededEntry,
   type BracketMatch,
+  type AdvancementMatch,
 } from "../singleElimination";
 
 function mulberry32(seed: number): () => number {
@@ -300,6 +302,89 @@ describe("generateSingleEliminationBracket when byes exceed the seeded count", (
       const placed = round1.flatMap((m) => [m.entry1Id, m.entry2Id]).filter(Boolean);
       expect(placed.sort()).toEqual(entries.map((e) => e.entryId).sort());
     }
+  });
+});
+
+function match(
+  round: number,
+  position: number,
+  entry1Id: string | null,
+  entry2Id: string | null,
+  winnerId: string | null = null,
+): AdvancementMatch {
+  return { round, position, entry1Id, entry2Id, winnerId };
+}
+
+function findMatch(matches: AdvancementMatch[], round: number, position: number) {
+  return matches.find((m) => m.round === round && m.position === position)!;
+}
+
+describe("recomputeAdvancement", () => {
+  it("advances a winner into the next round's empty slot without touching anything else", () => {
+    const matches = [
+      match(1, 0, "A", "B"),
+      match(1, 1, "C", "D"),
+      match(2, 0, null, null),
+    ];
+    const result = recomputeAdvancement(matches, 1, 0, "A");
+    expect(findMatch(result, 1, 0).winnerId).toBe("A");
+    expect(findMatch(result, 2, 0).entry1Id).toBe("A");
+    expect(findMatch(result, 2, 0).entry2Id).toBeNull();
+    expect(findMatch(result, 1, 1)).toEqual(match(1, 1, "C", "D"));
+  });
+
+  it("fills entry2 for an odd position", () => {
+    const matches = [match(1, 1, "C", "D"), match(2, 0, "A", null)];
+    const result = recomputeAdvancement(matches, 1, 1, "D");
+    expect(findMatch(result, 2, 0).entry1Id).toBe("A");
+    expect(findMatch(result, 2, 0).entry2Id).toBe("D");
+  });
+
+  it("stops immediately when the slot is already consistent (no-op)", () => {
+    const matches = [
+      match(1, 0, "A", "B", "A"),
+      match(2, 0, "A", "X", "X"),
+      match(3, 0, "X", null, null),
+    ];
+    const result = recomputeAdvancement(matches, 1, 0, "A");
+    // Re-recording the same winner shouldn't touch round 2 or round 3 at all.
+    expect(findMatch(result, 2, 0)).toEqual(match(2, 0, "A", "X", "X"));
+    expect(findMatch(result, 3, 0)).toEqual(match(3, 0, "X", null, null));
+  });
+
+  it("cascades: changing an earlier winner clears every downstream result it fed", () => {
+    // Round 1 match 0 was won by A, which fed round 2 match 0 (won by X, since
+    // A lost there — no wait, X must have come from round1 match1), which fed
+    // round 3 (the final). All of that is now stale once match 0's winner
+    // changes to B.
+    const matches = [
+      match(1, 0, "A", "B", "A"),
+      match(1, 1, "X", "Y", "X"),
+      match(2, 0, "A", "X", "X"), // X beat A in the semifinal
+      match(2, 1, "P", "Q", "P"),
+      match(3, 0, "X", "P", "X"), // X won the final
+    ];
+    const result = recomputeAdvancement(matches, 1, 0, "B");
+
+    expect(findMatch(result, 1, 0).winnerId).toBe("B");
+    // Round 2 match 0 now has B instead of A as entry1, and its old result
+    // (X won) is no longer valid since one of the participants changed.
+    expect(findMatch(result, 2, 0).entry1Id).toBe("B");
+    expect(findMatch(result, 2, 0).entry2Id).toBe("X");
+    expect(findMatch(result, 2, 0).winnerId).toBeNull();
+    // The final had X advancing from that semifinal — also cleared.
+    expect(findMatch(result, 3, 0).entry1Id).toBeNull();
+    expect(findMatch(result, 3, 0).entry2Id).toBe("P");
+    expect(findMatch(result, 3, 0).winnerId).toBeNull();
+    // The untouched half of the bracket is unaffected.
+    expect(findMatch(result, 1, 1)).toEqual(match(1, 1, "X", "Y", "X"));
+    expect(findMatch(result, 2, 1)).toEqual(match(2, 1, "P", "Q", "P"));
+  });
+
+  it("does nothing beyond the final round", () => {
+    const matches = [match(3, 0, "X", "P")];
+    const result = recomputeAdvancement(matches, 3, 0, "X");
+    expect(findMatch(result, 3, 0).winnerId).toBe("X");
   });
 });
 

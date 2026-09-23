@@ -164,10 +164,18 @@ export async function swapBracketEntries(
     return { error: "Select two different entries to swap." };
   }
 
-  const round1Matches: Round1Match[] = await prisma.match.findMany({
-    where: { eventId, round: 1 },
-    select: { id: true, position: true, entry1Id: true, entry2Id: true },
+  const allMatches = await prisma.match.findMany({
+    where: { eventId },
+    select: { id: true, round: true, position: true, entry1Id: true, entry2Id: true, status: true },
   });
+  const alreadyPlayed = allMatches.some(
+    (m) => m.status !== null && (m.entry1Id === entryIdA || m.entry2Id === entryIdA || m.entry1Id === entryIdB || m.entry2Id === entryIdB),
+  );
+  if (alreadyPlayed) {
+    return { error: "Can't swap — one of these entries has already played a scored match." };
+  }
+
+  const round1Matches: Round1Match[] = allMatches.filter((m) => m.round === 1);
   const matchA = round1Matches.find((m) => m.entry1Id === entryIdA || m.entry2Id === entryIdA);
   const matchB = round1Matches.find((m) => m.entry1Id === entryIdB || m.entry2Id === entryIdB);
   if (!matchA || !matchB) {

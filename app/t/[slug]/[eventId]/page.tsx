@@ -23,6 +23,7 @@ export default async function PublicEventPage({
           entry1: { include: { players: { include: { user: true } } } },
           entry2: { include: { players: { include: { user: true } } } },
           winner: { include: { players: { include: { user: true } } } },
+          games: { orderBy: { gameNumber: "asc" } },
         },
         orderBy: [{ round: "asc" }, { position: "asc" }],
       },
@@ -41,6 +42,8 @@ export default async function PublicEventPage({
     entry2Seed: m.entry2?.seed ?? null,
     winnerLabel: m.winner ? entryLabel(m.winner) : null,
     isBye: m.isBye,
+    status: m.status,
+    games: m.games.map((g) => ({ entry1Score: g.entry1Score, entry2Score: g.entry2Score })),
   }));
 
   return (

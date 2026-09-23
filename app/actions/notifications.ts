@@ -14,3 +14,14 @@ export async function markAllNotificationsRead(): Promise<void> {
 
   revalidatePath("/notifications");
 }
+
+export async function markNotificationRead(notificationId: string): Promise<void> {
+  const userId = await requireUserId();
+
+  await prisma.notification.updateMany({
+    where: { id: notificationId, userId },
+    data: { read: true },
+  });
+
+  revalidatePath("/notifications");
+}

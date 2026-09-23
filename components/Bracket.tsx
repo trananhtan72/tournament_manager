@@ -10,6 +10,8 @@ export type BracketMatchView = {
   entry2Seed: number | null;
   winnerLabel: string | null;
   isBye: boolean;
+  status: "COMPLETED" | "WALKOVER" | "RETIRED" | null;
+  games: { entry1Score: number; entry2Score: number }[];
 };
 
 function entryDisplay(label: string | null, seed: number | null): string | null {
@@ -17,22 +19,76 @@ function entryDisplay(label: string | null, seed: number | null): string | null 
   return seed !== null ? `${label} [${seed}]` : label;
 }
 
+// Always renders three cells (one per possible game), blank where a game
+// wasn't played, so a side's scores line up in fixed columns regardless of
+// how many games the match went to. Whichever side won a given game is
+// bolded, independently of who won the match overall.
+function ScoreCells({ scores, wonGame }: { scores: (number | null)[]; wonGame: boolean[] }) {
+  return (
+    <div className="flex shrink-0 gap-1">
+      {scores.map((value, i) => (
+        <span
+          key={i}
+          className={`w-4 text-center text-xs tabular-nums ${
+            wonGame[i]
+              ? "font-semibold text-slate-900 dark:text-white print:text-slate-900"
+              : "text-slate-500 dark:text-slate-400 print:text-slate-600"
+          }`}
+        >
+          {value ?? ""}
+        </span>
+      ))}
+    </div>
+  );
+}
+
 function MatchCard({ match }: { match: BracketMatchView }) {
   const isEntry1Winner = match.winnerLabel !== null && match.winnerLabel === match.entry1Label;
   const isEntry2Winner = match.winnerLabel !== null && match.winnerLabel === match.entry2Label;
+  const hasGames = match.games.length > 0;
+  const entry1Scores = [0, 1, 2].map((i) => match.games[i]?.entry1Score ?? null);
+  const entry2Scores = [0, 1, 2].map((i) => match.games[i]?.entry2Score ?? null);
+  const entry1WonGame = entry1Scores.map((v, i) => {
+    const other = entry2Scores[i];
+    return v !== null && other !== null && v > other;
+  });
+  const entry2WonGame = entry2Scores.map((v, i) => {
+    const other = entry1Scores[i];
+    return v !== null && other !== null && v > other;
+  });
+  // Walkover/retired always names the side that didn't finish — the loser.
+  const statusLabel = match.status === "WALKOVER" ? "Walkover" : match.status === "RETIRED" ? "Retired" : null;
+  const entry1StatusLabel = statusLabel && !isEntry1Winner ? statusLabel : null;
+  const entry2StatusLabel = statusLabel && !isEntry2Winner ? statusLabel : null;
 
   return (
-    <div className="flex w-56 flex-col gap-1 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 print:border-slate-300 print:bg-white">
-      <div
-        className={`truncate ${isEntry1Winner ? "font-semibold text-slate-900 dark:text-white print:text-slate-900" : "text-slate-600 dark:text-slate-400 print:text-slate-600"}`}
-      >
-        {entryDisplay(match.entry1Label, match.entry1Seed) ?? "TBD"}
+    <div className="flex w-64 flex-col gap-1 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 print:border-slate-300 print:bg-white">
+      <div className="flex items-center justify-between gap-2">
+        <span
+          className={`truncate ${isEntry1Winner ? "font-semibold text-slate-900 dark:text-white print:text-slate-900" : "text-slate-600 dark:text-slate-400 print:text-slate-600"}`}
+        >
+          {entryDisplay(match.entry1Label, match.entry1Seed) ?? "TBD"}
+        </span>
+        {hasGames && <ScoreCells scores={entry1Scores} wonGame={entry1WonGame} />}
+        {entry1StatusLabel && (
+          <span className="shrink-0 text-xs text-slate-400 dark:text-slate-500 print:text-slate-500">
+            {entry1StatusLabel}
+          </span>
+        )}
       </div>
       <div className="border-t border-slate-100 dark:border-slate-800 print:border-slate-100" />
-      <div
-        className={`truncate ${isEntry2Winner ? "font-semibold text-slate-900 dark:text-white print:text-slate-900" : "text-slate-600 dark:text-slate-400 print:text-slate-600"}`}
-      >
-        {match.isBye ? "Bye" : (entryDisplay(match.entry2Label, match.entry2Seed) ?? "TBD")}
+      <div className="flex items-center justify-between gap-2">
+        <span
+          className={`truncate ${isEntry2Winner ? "font-semibold text-slate-900 dark:text-white print:text-slate-900" : "text-slate-600 dark:text-slate-400 print:text-slate-600"}`}
+        >
+          {match.isBye ? "Bye" : (entryDisplay(match.entry2Label, match.entry2Seed) ?? "TBD")}
+        </span>
+        {hasGames && !match.isBye && <ScoreCells scores={entry2Scores} wonGame={entry2WonGame} />}
+        {entry2StatusLabel && (
+          <span className="shrink-0 text-xs text-slate-400 dark:text-slate-500 print:text-slate-500">
+            {entry2StatusLabel}
+          </span>
+        )}
       </div>
     </div>
   );

@@ -1,9 +1,15 @@
-import type { DrawFormat, EventCategory } from "@prisma/client";
+import type { DrawFormat, EventCategory, MatchStatus } from "@prisma/client";
 
 export const drawFormatLabels: Record<DrawFormat, string> = {
   SINGLE_ELIMINATION: "Single elimination",
   ROUND_ROBIN: "Round robin",
   POOLS_KNOCKOUT: "Pools + knockout",
+};
+
+export const matchStatusLabels: Record<MatchStatus, string> = {
+  COMPLETED: "Completed",
+  WALKOVER: "Walkover",
+  RETIRED: "Retired",
 };
 
 export const categoryLabels: Record<EventCategory, string> = {

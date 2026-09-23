@@ -4,6 +4,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { drawFormatLabels, isDoublesCategory } from "@/lib/eventLabels";
 import { playerName as getPlayerName } from "@/lib/playerDisplay";
+import { roundName } from "@/lib/tournament/singleElimination";
 import { ActionForm } from "@/components/ActionForm";
 import { EntrySeedField } from "@/components/EntrySeedField";
 import { RemoveEntryButton } from "@/components/RemoveEntryButton";
@@ -13,6 +14,7 @@ import { PairEntriesForm } from "@/app/organizer/[slug]/[eventId]/PairEntriesFor
 import { QuickAddEntryForm } from "@/app/organizer/[slug]/[eventId]/QuickAddEntryForm";
 import { GenerateDrawForm } from "@/app/organizer/[slug]/[eventId]/GenerateDrawForm";
 import { SwapEntriesForm } from "@/app/organizer/[slug]/[eventId]/SwapEntriesForm";
+import { MatchResultForm } from "@/app/organizer/[slug]/[eventId]/MatchResultForm";
 import { PrintDrawButton } from "@/components/PrintDrawButton";
 
 function entryLabel(entry: { players: { guestName: string | null; user: { name: string; email: string } | null }[] }) {
@@ -42,6 +44,7 @@ export default async function ManageEventPage({
           entry1: { include: { players: { include: { user: true } } } },
           entry2: { include: { players: { include: { user: true } } } },
           winner: { include: { players: { include: { user: true } } } },
+          games: { orderBy: { gameNumber: "asc" } },
         },
         orderBy: [{ round: "asc" }, { position: "asc" }],
       },
@@ -71,7 +74,27 @@ export default async function ManageEventPage({
     entry2Seed: m.entry2?.seed ?? null,
     winnerLabel: m.winner ? entryLabel(m.winner) : null,
     isBye: m.isBye,
+    status: m.status,
+    games: m.games.map((g) => ({ entry1Score: g.entry1Score, entry2Score: g.entry2Score })),
   }));
+
+  const scorableMatches = event.matches
+    .filter((m) => !m.isBye && m.entry1 && m.entry2)
+    .map((m) => ({
+      matchId: m.id,
+      round: m.round,
+      position: m.position,
+      entry1Id: m.entry1!.id,
+      entry1Label: entryLabel(m.entry1!),
+      entry2Id: m.entry2!.id,
+      entry2Label: entryLabel(m.entry2!),
+      existing: {
+        status: m.status,
+        winnerId: m.winnerId,
+        games: m.games.map((g) => ({ entry1Score: g.entry1Score, entry2Score: g.entry2Score })),
+      },
+    }));
+  const totalRounds = bracketMatches.reduce((max, m) => Math.max(max, m.round), 0);
 
   const unpublishWithId = unpublishDraw.bind(null, event.id);
   const publishWithId = publishDraw.bind(null, event.id);
@@ -269,6 +292,43 @@ export default async function ManageEventPage({
           </>
         )}
       </section>
+
+      {event.drawPublished && scorableMatches.length > 0 && (
+        <section className="flex flex-col gap-4 border-t border-slate-200 pt-6 dark:border-slate-800">
+          <h2 className="text-lg font-semibold">Match results</h2>
+          {Array.from({ length: totalRounds }, (_, i) => i + 1).map((round) => {
+            const roundMatches = scorableMatches
+              .filter((m) => m.round === round)
+              .sort((a, b) => a.position - b.position);
+            if (roundMatches.length === 0) return null;
+            return (
+              <div key={round} className="flex flex-col gap-3">
+                <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                  {roundName(round, totalRounds)}
+                </h3>
+                <ul className="flex flex-col gap-3">
+                  {roundMatches.map((m) => (
+                    <li key={m.matchId} className="rounded-md border border-slate-200 p-3 dark:border-slate-700">
+                      <p className="mb-2 text-sm font-medium">
+                        {m.entry1Label} vs {m.entry2Label}
+                      </p>
+                      <MatchResultForm
+                        key={`${m.matchId}:${m.existing.status}:${m.existing.winnerId}`}
+                        matchId={m.matchId}
+                        entry1Id={m.entry1Id}
+                        entry1Label={m.entry1Label}
+                        entry2Id={m.entry2Id}
+                        entry2Label={m.entry2Label}
+                        existing={m.existing}
+                      />
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            );
+          })}
+        </section>
+      )}
     </div>
   );
 }

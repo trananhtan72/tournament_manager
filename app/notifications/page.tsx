@@ -1,9 +1,9 @@
 import { redirect } from "next/navigation";
-import Link from "next/link";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { formatDateTime } from "@/lib/formatDateTime";
 import { ActionForm } from "@/components/ActionForm";
+import { MarkReadLink } from "@/components/MarkReadLink";
 import { markAllNotificationsRead } from "@/app/actions/notifications";
 
 export default async function NotificationsPage() {
@@ -37,31 +37,22 @@ export default async function NotificationsPage() {
         <p className="text-sm text-slate-500">You have no notifications yet.</p>
       ) : (
         <ul className="flex flex-col gap-2">
-          {notifications.map((n) => {
-            const content = (
-              <div
-                className={`flex flex-col gap-1 rounded-md border px-4 py-3 ${
-                  n.read
-                    ? "border-slate-200 dark:border-slate-700"
-                    : "border-slate-400 bg-slate-50 dark:border-slate-500 dark:bg-slate-800"
-                }`}
-              >
-                <p className="text-sm text-slate-900 dark:text-white">{n.message}</p>
-                <p className="text-xs text-slate-500">{formatDateTime(n.createdAt)}</p>
-              </div>
-            );
-            return (
-              <li key={n.id}>
-                {n.link ? (
-                  <Link href={n.link} className="block">
-                    {content}
-                  </Link>
-                ) : (
-                  content
-                )}
-              </li>
-            );
-          })}
+          {notifications.map((n) => (
+            <li key={n.id}>
+              <MarkReadLink notificationId={n.id} href={n.link} read={n.read} className="block w-full text-left">
+                <div
+                  className={`flex flex-col gap-1 rounded-md border px-4 py-3 ${
+                    n.read
+                      ? "border-slate-200 dark:border-slate-700"
+                      : "border-slate-400 bg-slate-50 dark:border-slate-500 dark:bg-slate-800"
+                  }`}
+                >
+                  <p className="text-sm text-slate-900 dark:text-white">{n.message}</p>
+                  <p className="text-xs text-slate-500">{formatDateTime(n.createdAt)}</p>
+                </div>
+              </MarkReadLink>
+            </li>
+          ))}
         </ul>
       )}
     </div>

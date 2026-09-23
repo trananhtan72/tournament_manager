@@ -218,6 +218,62 @@ export function generateSingleEliminationBracket(
   return matches;
 }
 
+export type AdvancementMatch = {
+  round: number;
+  position: number;
+  entry1Id: string | null;
+  entry2Id: string | null;
+  winnerId: string | null;
+};
+
+/**
+ * Records a match's winner and cascades the change forward: the next round's
+ * slot fed by this match is updated, and if that next match had already been
+ * decided (its own winner set — from a bye or an earlier recorded result),
+ * that decision is now stale, so it's cleared and the clearing cascades
+ * further downstream in turn. Recursion stops as soon as a slot is already
+ * consistent with the propagated value, or the final has been reached.
+ *
+ * Pure and side-effect free: takes and returns plain match records (no DB
+ * access), so callers persist only what changed and separately clean up
+ * anything else tied to a cleared match (recorded games, status).
+ */
+export function recomputeAdvancement<T extends AdvancementMatch>(
+  matches: T[],
+  changedRound: number,
+  changedPosition: number,
+  newWinnerId: string | null,
+): T[] {
+  const byKey = new Map(matches.map((m) => [`${m.round}:${m.position}`, { ...m }]));
+
+  const target = byKey.get(`${changedRound}:${changedPosition}`);
+  if (target) target.winnerId = newWinnerId;
+
+  let round = changedRound;
+  let position = changedPosition;
+  let winnerId: string | null | undefined = newWinnerId;
+
+  while (winnerId !== undefined) {
+    const nextRound = round + 1;
+    const nextPosition = Math.floor(position / 2);
+    const next = byKey.get(`${nextRound}:${nextPosition}`);
+    if (!next) break;
+
+    const slot = position % 2 === 0 ? "entry1Id" : "entry2Id";
+    if (next[slot] === winnerId) break;
+    next[slot] = winnerId;
+
+    const hadWinner = next.winnerId !== null;
+    next.winnerId = null;
+
+    round = nextRound;
+    position = nextPosition;
+    winnerId = hadWinner ? null : undefined;
+  }
+
+  return [...byKey.values()];
+}
+
 export function roundName(round: number, totalRounds: number): string {
   const fromEnd = totalRounds - round;
   if (fromEnd === 0) return "Final";
