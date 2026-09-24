@@ -7,7 +7,7 @@ const nextConfig: NextConfig = {
   // network IP instead, which needs to be explicitly allowlisted here or the
   // page loads but never hydrates (no error shown — everything just looks
   // unresponsive).
-  allowedDevOrigins: ["192.168.0.105"],
+  allowedDevOrigins: ["192.168.0.*"],
 };
 
 export default nextConfig;

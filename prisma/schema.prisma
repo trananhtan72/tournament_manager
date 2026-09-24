@@ -55,6 +55,7 @@ model Event {
   drawPublished  Boolean       @default(false)
   entries        Entry[]
   matches        Match[]
+  pools          Pool[]
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
 
@@ -78,6 +79,8 @@ model Entry {
   event               Event         @relation(fields: [eventId], references: [id], onDelete: Cascade)
   status              EntryStatus
   seed                Int?
+  poolId              String?
+  pool                Pool?         @relation(fields: [poolId], references: [id])
   players             EntryPlayer[]
   matchesAsEntry1     Match[]       @relation("MatchEntry1")
   matchesAsEntry2     Match[]       @relation("MatchEntry2")
@@ -86,6 +89,23 @@ model Entry {
   updatedAt           DateTime      @updatedAt
 
   @@unique([eventId, seed])
+}
+
+// Pools + knockout only: entries are split into pools (round-robin within
+// each), and the top 1-2 per pool advance into a single-elimination
+// knockout stage. Pool-stage matches carry a poolId; knockout-stage matches
+// don't (and use round numbers starting fresh at 1, same as a plain
+// single-elimination draw, since pool matches are all stored at round 0).
+model Pool {
+  id        String   @id @default(cuid())
+  eventId   String
+  event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  name      String
+  entries   Entry[]
+  matches   Match[]
+  createdAt DateTime @default(now())
+
+  @@unique([eventId, name])
 }
 
 // A player in an entry is either a registered User (userId set) or a
@@ -121,6 +141,8 @@ model Match {
   id        String       @id @default(cuid())
   eventId   String
   event     Event        @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  poolId    String?
+  pool      Pool?        @relation(fields: [poolId], references: [id], onDelete: Cascade)
   round     Int
   position  Int
   entry1Id  String?

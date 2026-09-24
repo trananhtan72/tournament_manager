@@ -1,3 +1,5 @@
+import { shuffle } from "./shuffle";
+
 export type SeededEntry = {
   entryId: string;
   seed: number | null;
@@ -23,15 +25,6 @@ export function nextPowerOfTwo(n: number): number {
   let size = 1;
   while (size < n) size *= 2;
   return size;
-}
-
-function shuffle<T>(items: T[], rand: () => number): T[] {
-  const result = [...items];
-  for (let i = result.length - 1; i > 0; i--) {
-    const j = Math.floor(rand() * (i + 1));
-    [result[i], result[j]] = [result[j], result[i]];
-  }
-  return result;
 }
 
 function buildRawSeedTemplate(bracketSize: number): number[] {
@@ -75,10 +68,19 @@ export function buildSeedTemplate(bracketSize: number): number[] {
  * every later round; bye winners are already advanced into round 2.
  *
  * Pure and deterministic given `rand` — no I/O, no DB access.
+ *
+ * `deterministicSeeding` skips the within-tier shuffle (seed 3 always ranks
+ * above seed 4, 5 above 6, etc., instead of randomizing which of a tied pair
+ * gets which slot). Organizer-assigned seeds are deliberately tied within a
+ * tier — spec only promises "3/4 in the remaining quarters," not which one
+ * gets which — but a caller that assigns a *meaningful*, non-tied order
+ * (e.g. pool rank, where scrambling 3/4 could seat two same-pool entries
+ * together in round 1) needs that order preserved exactly.
  */
 export function generateSingleEliminationBracket(
   entries: SeededEntry[],
   rand: () => number = Math.random,
+  deterministicSeeding = false,
 ): BracketMatch[] {
   const n = entries.length;
   if (n < MIN_BRACKET_ENTRIES || n > MAX_BRACKET_ENTRIES) {
@@ -114,7 +116,7 @@ export function generateSingleEliminationBracket(
   for (const tierRanks of SEED_TIERS) {
     const seedsInTier = seeded.filter((e) => tierRanks.includes(e.seed as number));
     if (seedsInTier.length === 0) continue;
-    const shuffledTierRanks = shuffle(tierRanks, rand);
+    const shuffledTierRanks = deterministicSeeding ? tierRanks : shuffle(tierRanks, rand);
     seedsInTier.forEach((entry, i) => {
       const rank = shuffledTierRanks[i];
       rankOfEntry.set(entry.entryId, rank);

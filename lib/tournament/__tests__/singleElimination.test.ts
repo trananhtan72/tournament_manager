@@ -186,6 +186,28 @@ describe("generateSingleEliminationBracket seeding placement", () => {
     }
   });
 
+  it("preserves seed order within a tier when deterministicSeeding is set, unlike the default random tie-break", () => {
+    // Seeds 3 and 4 are meaningfully ordered here (e.g. pool rank), so with
+    // deterministicSeeding the SAME slots must come out every time, instead
+    // of the default behavior of randomly swapping which of the two lands
+    // in which remaining quarter.
+    const entries = makeEntries(4, { 0: 1, 1: 2, 2: 3, 3: 4 });
+    const positions = new Set<string>();
+    for (let trial = 0; trial < 25; trial++) {
+      const matches = generateSingleEliminationBracket(entries, mulberry32(trial), true);
+      const round1 = round1Of(matches);
+      const pos3 = findRound1Position(matches, "e2"); // seed 3
+      const pos4 = findRound1Position(matches, "e3"); // seed 4
+      positions.add(`${pos3}:${pos4}`);
+      // Seed 3 must always land in the opposite match from seed 1 but the
+      // same match as seed 2 — i.e. always the "last" match, paired with
+      // seed 4 — not shuffled to face seed 1 instead.
+      expect(round1[round1.length - 1].entry1Id === "e2" || round1[round1.length - 1].entry2Id === "e2").toBe(true);
+    }
+    // Every trial produced the identical placement — no randomization.
+    expect(positions.size).toBe(1);
+  });
+
   it("keeps seeds 1-8 in eight different eighths across many trials", () => {
     for (let trial = 0; trial < 25; trial++) {
       const rand = mulberry32(trial * 13 + 3);

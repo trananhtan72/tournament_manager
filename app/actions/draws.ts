@@ -13,6 +13,8 @@ import {
   MAX_BRACKET_ENTRIES,
   type SeededEntry,
 } from "@/lib/tournament/singleElimination";
+import { generateRoundRobinMatches, computeRoundRobinStandings, MIN_ROUND_ROBIN_ENTRIES } from "@/lib/tournament/roundRobin";
+import { choosePoolCount, poolName, assignEntriesToPools, selectKnockoutAdvancers } from "@/lib/tournament/pools";
 
 export type DrawActionState = { error?: string };
 
@@ -21,6 +23,14 @@ async function requireOwnedEvent(eventId: string, userId: string) {
     where: { id: eventId, tournament: { organizerId: userId } },
     include: { tournament: true },
   });
+}
+
+async function clearExistingDraw(eventId: string): Promise<void> {
+  await prisma.$transaction([
+    prisma.match.deleteMany({ where: { eventId } }),
+    prisma.pool.deleteMany({ where: { eventId } }),
+    prisma.entry.updateMany({ where: { eventId }, data: { poolId: null } }),
+  ]);
 }
 
 export async function generateDraw(
@@ -34,40 +44,184 @@ export async function generateDraw(
   if (event.drawPublished) {
     return { error: "The draw has already been published. Unpublish it first to regenerate." };
   }
-  if (event.drawFormat !== "SINGLE_ELIMINATION") {
-    return { error: "Only single-elimination draws can be generated right now." };
-  }
 
   const confirmedEntries = await prisma.entry.findMany({
     where: { eventId, status: "CONFIRMED" },
     select: { id: true, seed: true },
   });
 
-  if (confirmedEntries.length < MIN_BRACKET_ENTRIES) {
+  if (event.drawFormat === "SINGLE_ELIMINATION") {
+    if (confirmedEntries.length < MIN_BRACKET_ENTRIES) {
+      return {
+        error: `Need at least ${MIN_BRACKET_ENTRIES} confirmed entries to generate a draw (have ${confirmedEntries.length}).`,
+      };
+    }
+    if (confirmedEntries.length > MAX_BRACKET_ENTRIES) {
+      return {
+        error: `Single elimination supports at most ${MAX_BRACKET_ENTRIES} entries (have ${confirmedEntries.length}).`,
+      };
+    }
+
+    const seededEntries: SeededEntry[] = confirmedEntries.map((e) => ({ entryId: e.id, seed: e.seed }));
+    let bracket;
+    try {
+      bracket = generateSingleEliminationBracket(seededEntries);
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : "Couldn't generate the draw." };
+    }
+
+    await clearExistingDraw(eventId);
+    await prisma.match.createMany({
+      data: bracket.map((m) => ({
+        eventId,
+        round: m.round,
+        position: m.position,
+        entry1Id: m.entry1Id,
+        entry2Id: m.entry2Id,
+        winnerId: m.winnerId,
+        isBye: m.isBye,
+      })),
+    });
+  } else if (event.drawFormat === "ROUND_ROBIN") {
+    if (confirmedEntries.length < MIN_ROUND_ROBIN_ENTRIES) {
+      return {
+        error: `Need at least ${MIN_ROUND_ROBIN_ENTRIES} confirmed entries for round robin (have ${confirmedEntries.length}).`,
+      };
+    }
+
+    const matches = generateRoundRobinMatches(confirmedEntries.map((e) => e.id));
+    await clearExistingDraw(eventId);
+    await prisma.match.createMany({
+      data: matches.map((m) => ({
+        eventId,
+        round: 1,
+        position: m.position,
+        entry1Id: m.entry1Id,
+        entry2Id: m.entry2Id,
+      })),
+    });
+  } else {
+    // POOLS_KNOCKOUT: this generates the pool stage only. The knockout
+    // stage is generated separately, once every pool match is complete.
+    let poolCount: number;
+    try {
+      poolCount = choosePoolCount(confirmedEntries.length);
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : "Couldn't split entries into pools." };
+    }
+
+    const pools = assignEntriesToPools(
+      confirmedEntries.map((e) => ({ entryId: e.id, seed: e.seed })),
+      poolCount,
+    );
+
+    await clearExistingDraw(eventId);
+    await prisma.$transaction(async (tx) => {
+      let position = 0;
+      for (const [index, poolEntryIds] of pools.entries()) {
+        const pool = await tx.pool.create({ data: { eventId, name: poolName(index) } });
+        await tx.entry.updateMany({ where: { id: { in: poolEntryIds } }, data: { poolId: pool.id } });
+        const matches = generateRoundRobinMatches(poolEntryIds);
+        await tx.match.createMany({
+          data: matches.map((m) => ({
+            eventId,
+            poolId: pool.id,
+            round: 0,
+            position: position++,
+            entry1Id: m.entry1Id,
+            entry2Id: m.entry2Id,
+          })),
+        });
+      }
+    });
+  }
+
+  revalidatePath(`/organizer/${event.tournament.slug}/${eventId}`);
+  revalidatePath(`/t/${event.tournament.slug}/${eventId}`);
+  return {};
+}
+
+/**
+ * Generates the knockout stage of a pools+knockout event: takes the top 1 or
+ * 2 finishers from every pool (by the same standings logic as round robin)
+ * and seeds them into a single-elimination bracket, pool winners first.
+ * Requires every pool match to be completed first.
+ */
+export async function generateKnockoutStage(
+  eventId: string,
+  _prevState: DrawActionState,
+  formData: FormData,
+): Promise<DrawActionState> {
+  const userId = await requireUserId();
+  const event = await requireOwnedEvent(eventId, userId);
+  if (!event) return { error: "Event not found." };
+  if (event.drawFormat !== "POOLS_KNOCKOUT") return { error: "This event isn't a pools + knockout event." };
+
+  const existingKnockoutMatches = await prisma.match.findMany({
+    where: { eventId, poolId: null },
+    select: { status: true },
+  });
+  if (existingKnockoutMatches.some((m) => m.status !== null)) {
+    return { error: "Can't regenerate — the knockout stage already has scored matches." };
+  }
+
+  const advancesPerPoolRaw = formData.get("advancesPerPool");
+  const advancesPerPool = advancesPerPoolRaw === "2" ? 2 : advancesPerPoolRaw === "1" ? 1 : null;
+  if (advancesPerPool === null) {
+    return { error: "Choose how many entries advance per pool." };
+  }
+
+  const pools = await prisma.pool.findMany({
+    where: { eventId },
+    orderBy: { name: "asc" },
+    include: {
+      entries: { select: { id: true } },
+      matches: { select: { entry1Id: true, entry2Id: true, winnerId: true, games: true } },
+    },
+  });
+  if (pools.length === 0) return { error: "Generate the pools first." };
+
+  const incompletePool = pools.find((p) => p.matches.some((m) => m.winnerId === null));
+  if (incompletePool) {
+    return { error: `${incompletePool.name} still has unplayed matches.` };
+  }
+
+  const poolStandings = pools.map((pool) => {
+    const entryIds = pool.entries.map((e) => e.id);
+    // Pool matches are always generated with both entries filled in (never
+    // a bye/TBD), so this filter is just satisfying the type checker.
+    const playedMatches = pool.matches.filter(
+      (m): m is typeof m & { entry1Id: string; entry2Id: string } => m.entry1Id !== null && m.entry2Id !== null,
+    );
+    const standings = computeRoundRobinStandings(entryIds, playedMatches);
+    return standings.map((s) => s.entryId);
+  });
+
+  const advancers = selectKnockoutAdvancers(poolStandings, advancesPerPool);
+  if (advancers.length < MIN_BRACKET_ENTRIES) {
     return {
-      error: `Need at least ${MIN_BRACKET_ENTRIES} confirmed entries to generate a draw (have ${confirmedEntries.length}).`,
+      error: `Not enough advancers for a knockout bracket (need at least ${MIN_BRACKET_ENTRIES}, have ${advancers.length}).`,
     };
   }
-  if (confirmedEntries.length > MAX_BRACKET_ENTRIES) {
+  if (advancers.length > MAX_BRACKET_ENTRIES) {
     return {
-      error: `Single elimination supports at most ${MAX_BRACKET_ENTRIES} entries (have ${confirmedEntries.length}).`,
+      error: `Too many advancers for a knockout bracket (max ${MAX_BRACKET_ENTRIES}, have ${advancers.length}). Choose 1 per pool instead.`,
     };
   }
 
-  const seededEntries: SeededEntry[] = confirmedEntries.map((e) => ({
-    entryId: e.id,
-    seed: e.seed,
-  }));
-
+  const seededEntries: SeededEntry[] = advancers.map((a) => ({ entryId: a.entryId, seed: a.seed }));
   let bracket;
   try {
-    bracket = generateSingleEliminationBracket(seededEntries);
+    // Deterministic: pool rank is a meaningful order (unlike organizer-tied
+    // seeds 3/4), so it must survive exactly or two same-pool entries could
+    // end up paired in the very first knockout round.
+    bracket = generateSingleEliminationBracket(seededEntries, Math.random, true);
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "Couldn't generate the draw." };
+    return { error: error instanceof Error ? error.message : "Couldn't generate the knockout bracket." };
   }
 
   await prisma.$transaction([
-    prisma.match.deleteMany({ where: { eventId } }),
+    prisma.match.deleteMany({ where: { eventId, poolId: null } }),
     prisma.match.createMany({
       data: bracket.map((m) => ({
         eventId,
@@ -81,6 +235,25 @@ export async function generateDraw(
     }),
   ]);
 
+  // The draw was already published for the pool stage — let advancers know
+  // their knockout match is ready, same as the initial publish notice.
+  if (event.drawPublished) {
+    const advancerPlayers = await prisma.entryPlayer.findMany({
+      where: { entryId: { in: advancers.map((a) => a.entryId) } },
+      select: { userId: true },
+    });
+    const userIds = [...new Set(advancerPlayers.map((p) => p.userId).filter((id): id is string => id !== null))];
+    await Promise.all(
+      userIds.map((uid) =>
+        notify(
+          uid,
+          `The knockout stage for ${event.name} at ${event.tournament.name} has been generated.`,
+          `/t/${event.tournament.slug}/${eventId}`,
+        ),
+      ),
+    );
+  }
+
   revalidatePath(`/organizer/${event.tournament.slug}/${eventId}`);
   revalidatePath(`/t/${event.tournament.slug}/${eventId}`);
   return {};
@@ -91,22 +264,24 @@ export async function publishDraw(eventId: string): Promise<void> {
   const event = await requireOwnedEvent(eventId, userId);
   if (!event) redirect("/organizer");
 
-  const round1Matches = await prisma.match.findMany({
-    where: { eventId, round: 1 },
+  // Not scoped to round 1: single elimination and round robin both place
+  // every entry there, but pools+knockout's pool stage lives at round 0.
+  const allMatches = await prisma.match.findMany({
+    where: { eventId },
     include: {
       entry1: { include: { players: true } },
       entry2: { include: { players: true } },
     },
   });
-  if (round1Matches.length === 0) redirect(`/organizer/${event.tournament.slug}/${eventId}`);
+  if (allMatches.length === 0) redirect(`/organizer/${event.tournament.slug}/${eventId}`);
 
   await prisma.event.update({ where: { id: eventId }, data: { drawPublished: true } });
 
-  // Notify everyone actually placed in the bracket (not just "confirmed"
+  // Notify everyone actually placed in the draw (not just "confirmed"
   // entries in general, in case one was added after the draw was generated
   // but before it was published).
   const notifiedUserIds = new Set<string>();
-  for (const match of round1Matches) {
+  for (const match of allMatches) {
     for (const entry of [match.entry1, match.entry2]) {
       for (const player of entry?.players ?? []) {
         if (player.userId) notifiedUserIds.add(player.userId);
@@ -237,6 +412,178 @@ export async function swapBracketEntries(
       ...[...round2Updates.entries()].map(([id, data]) => prisma.match.update({ where: { id }, data })),
     ]);
   }
+
+  revalidatePath(`/organizer/${event.tournament.slug}/${eventId}`);
+  revalidatePath(`/t/${event.tournament.slug}/${eventId}`);
+  return {};
+}
+
+/**
+ * Swaps two entries between their pools (pools+knockout only). Unlike a
+ * bracket-position swap, a pool has no "slots" to trade — moving an entry
+ * means it now plays everyone in its new pool and no longer plays anyone in
+ * its old one, so the fix is to delete its old pool's matches against it and
+ * create fresh ones against its new pool's other entries.
+ */
+export async function swapPoolEntries(
+  eventId: string,
+  _prevState: DrawActionState,
+  formData: FormData,
+): Promise<DrawActionState> {
+  const userId = await requireUserId();
+  const event = await requireOwnedEvent(eventId, userId);
+  if (!event) return { error: "Event not found." };
+  if (event.drawFormat !== "POOLS_KNOCKOUT") return { error: "This event doesn't use pools." };
+
+  const entryIdA = formData.get("entryIdA");
+  const entryIdB = formData.get("entryIdB");
+  if (typeof entryIdA !== "string" || typeof entryIdB !== "string" || !entryIdA || !entryIdB) {
+    return { error: "Select two entries to swap." };
+  }
+  if (entryIdA === entryIdB) {
+    return { error: "Select two different entries to swap." };
+  }
+
+  const knockoutMatchCount = await prisma.match.count({ where: { eventId, poolId: null } });
+  if (knockoutMatchCount > 0) {
+    return { error: "Can't swap pools — the knockout stage has already been generated." };
+  }
+
+  const [entryA, entryB] = await Promise.all([
+    prisma.entry.findUnique({ where: { id: entryIdA }, select: { id: true, poolId: true } }),
+    prisma.entry.findUnique({ where: { id: entryIdB }, select: { id: true, poolId: true } }),
+  ]);
+  if (!entryA?.poolId || !entryB?.poolId || entryA.poolId === entryB.poolId) {
+    return { error: "Both entries must currently be in two different pools." };
+  }
+
+  const [poolAMatches, poolBMatches] = await Promise.all([
+    prisma.match.findMany({ where: { poolId: entryA.poolId }, select: { id: true, entry1Id: true, entry2Id: true, status: true } }),
+    prisma.match.findMany({ where: { poolId: entryB.poolId }, select: { id: true, entry1Id: true, entry2Id: true, status: true } }),
+  ]);
+  const alreadyPlayed = [...poolAMatches, ...poolBMatches].some(
+    (m) => m.status !== null && (m.entry1Id === entryIdA || m.entry2Id === entryIdA || m.entry1Id === entryIdB || m.entry2Id === entryIdB),
+  );
+  if (alreadyPlayed) {
+    return { error: "Can't swap — one of these entries has already played a scored pool match." };
+  }
+
+  const poolAOthers = [
+    ...new Set(poolAMatches.flatMap((m) => [m.entry1Id, m.entry2Id]).filter((id): id is string => id !== null && id !== entryIdA)),
+  ];
+  const poolBOthers = [
+    ...new Set(poolBMatches.flatMap((m) => [m.entry1Id, m.entry2Id]).filter((id): id is string => id !== null && id !== entryIdB)),
+  ];
+
+  const maxPosition = await prisma.match.aggregate({ where: { eventId, round: 0 }, _max: { position: true } });
+  let nextPosition = (maxPosition._max.position ?? -1) + 1;
+
+  await prisma.$transaction([
+    prisma.match.deleteMany({ where: { poolId: entryA.poolId, OR: [{ entry1Id: entryIdA }, { entry2Id: entryIdA }] } }),
+    prisma.match.deleteMany({ where: { poolId: entryB.poolId, OR: [{ entry1Id: entryIdB }, { entry2Id: entryIdB }] } }),
+    prisma.entry.update({ where: { id: entryIdA }, data: { poolId: entryB.poolId } }),
+    prisma.entry.update({ where: { id: entryIdB }, data: { poolId: entryA.poolId } }),
+    prisma.match.createMany({
+      data: [
+        ...poolBOthers.map((otherId) => ({
+          eventId,
+          poolId: entryB.poolId!,
+          round: 0,
+          position: nextPosition++,
+          entry1Id: entryIdA,
+          entry2Id: otherId,
+        })),
+        ...poolAOthers.map((otherId) => ({
+          eventId,
+          poolId: entryA.poolId!,
+          round: 0,
+          position: nextPosition++,
+          entry1Id: entryIdB,
+          entry2Id: otherId,
+        })),
+      ],
+    }),
+  ]);
+
+  revalidatePath(`/organizer/${event.tournament.slug}/${eventId}`);
+  revalidatePath(`/t/${event.tournament.slug}/${eventId}`);
+  return {};
+}
+
+/**
+ * Moves a single entry into a different pool, leaving pool sizes unequal —
+ * for when swapping two entries (which preserves both pools' sizes) isn't
+ * what's needed, e.g. correcting a pool that ended up too big or too small.
+ */
+export async function movePoolEntry(
+  eventId: string,
+  _prevState: DrawActionState,
+  formData: FormData,
+): Promise<DrawActionState> {
+  const userId = await requireUserId();
+  const event = await requireOwnedEvent(eventId, userId);
+  if (!event) return { error: "Event not found." };
+  if (event.drawFormat !== "POOLS_KNOCKOUT") return { error: "This event doesn't use pools." };
+
+  const entryId = formData.get("entryId");
+  const targetPoolId = formData.get("targetPoolId");
+  if (typeof entryId !== "string" || !entryId || typeof targetPoolId !== "string" || !targetPoolId) {
+    return { error: "Select an entry and a destination pool." };
+  }
+
+  const knockoutMatchCount = await prisma.match.count({ where: { eventId, poolId: null } });
+  if (knockoutMatchCount > 0) {
+    return { error: "Can't move entries — the knockout stage has already been generated." };
+  }
+
+  const entry = await prisma.entry.findUnique({ where: { id: entryId }, select: { id: true, poolId: true } });
+  if (!entry?.poolId) return { error: "Entry not found in any pool." };
+  if (entry.poolId === targetPoolId) return { error: "That entry is already in this pool." };
+
+  const targetPool = await prisma.pool.findUnique({ where: { id: targetPoolId }, select: { id: true, eventId: true } });
+  if (!targetPool || targetPool.eventId !== eventId) return { error: "Destination pool not found." };
+
+  const sourcePoolMatches = await prisma.match.findMany({
+    where: { poolId: entry.poolId },
+    select: { entry1Id: true, entry2Id: true, status: true },
+  });
+  const alreadyPlayed = sourcePoolMatches.some(
+    (m) => m.status !== null && (m.entry1Id === entryId || m.entry2Id === entryId),
+  );
+  if (alreadyPlayed) {
+    return { error: "Can't move — this entry has already played a scored pool match." };
+  }
+
+  const sourcePoolOtherIds = [
+    ...new Set(
+      sourcePoolMatches.flatMap((m) => [m.entry1Id, m.entry2Id]).filter((id): id is string => id !== null && id !== entryId),
+    ),
+  ];
+  if (sourcePoolOtherIds.length === 0) {
+    return { error: "Can't move — this is the last entry in its pool." };
+  }
+
+  const targetPoolOtherIds = (await prisma.entry.findMany({ where: { poolId: targetPoolId }, select: { id: true } })).map(
+    (e) => e.id,
+  );
+
+  const maxPosition = await prisma.match.aggregate({ where: { eventId, round: 0 }, _max: { position: true } });
+  let nextPosition = (maxPosition._max.position ?? -1) + 1;
+
+  await prisma.$transaction([
+    prisma.match.deleteMany({ where: { poolId: entry.poolId, OR: [{ entry1Id: entryId }, { entry2Id: entryId }] } }),
+    prisma.entry.update({ where: { id: entryId }, data: { poolId: targetPoolId } }),
+    prisma.match.createMany({
+      data: targetPoolOtherIds.map((otherId) => ({
+        eventId,
+        poolId: targetPoolId,
+        round: 0,
+        position: nextPosition++,
+        entry1Id: entryId,
+        entry2Id: otherId,
+      })),
+    }),
+  ]);
 
   revalidatePath(`/organizer/${event.tournament.slug}/${eventId}`);
   revalidatePath(`/t/${event.tournament.slug}/${eventId}`);

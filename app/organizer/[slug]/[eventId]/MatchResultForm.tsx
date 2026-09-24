@@ -2,6 +2,7 @@
 
 import { useActionState, useState } from "react";
 import { submitMatchResult, type MatchActionState } from "@/app/actions/matches";
+import { MatchCard } from "@/components/Bracket";
 import { SelectField } from "@/components/SelectField";
 import { SubmitButton } from "@/components/SubmitButton";
 import { Button } from "@/components/Button";
@@ -14,15 +15,6 @@ type ExistingResult = {
   winnerId: string | null;
   games: { entry1Score: number; entry2Score: number }[];
 };
-
-function resultSummary(existing: ExistingResult, entry1Id: string, entry1Label: string, entry2Label: string): string {
-  if (!existing.status) return "Not yet played";
-  const winnerLabel = existing.winnerId === entry1Id ? entry1Label : entry2Label;
-  if (existing.status === "WALKOVER") return `Walkover — ${winnerLabel} won`;
-  if (existing.status === "RETIRED") return `Retired — ${winnerLabel} won`;
-  const scores = existing.games.map((g) => `${g.entry1Score}-${g.entry2Score}`).join(", ");
-  return `${winnerLabel} won, ${scores}`;
-}
 
 export function MatchResultForm({
   matchId,
@@ -53,10 +45,25 @@ export function MatchResultForm({
   const [state, formAction] = useActionState(action, initialState);
 
   if (!isOpen) {
+    const winnerLabel = existing.winnerId === entry1Id ? entry1Label : existing.winnerId === entry2Id ? entry2Label : null;
     return (
-      <div className="flex items-center justify-between gap-3 text-sm">
-        <span className="text-slate-500">{resultSummary(existing, entry1Id, entry1Label, entry2Label)}</span>
-        <Button type="button" variant="secondary" className="px-2 py-1 text-xs" onClick={() => setIsOpen(true)}>
+      <div className="flex items-center justify-between gap-3">
+        <MatchCard
+          match={{
+            id: matchId,
+            round: 0,
+            position: 0,
+            entry1Label,
+            entry1Seed: null,
+            entry2Label,
+            entry2Seed: null,
+            winnerLabel,
+            isBye: false,
+            status: existing.status,
+            games: existing.games,
+          }}
+        />
+        <Button type="button" variant="secondary" className="shrink-0 px-2 py-1 text-xs" onClick={() => setIsOpen(true)}>
           Edit result
         </Button>
       </div>
@@ -65,6 +72,9 @@ export function MatchResultForm({
 
   return (
     <form action={formAction} className="flex flex-col gap-3 rounded-md border border-slate-200 p-3 dark:border-slate-700">
+      <p className="text-sm font-medium">
+        {entry1Label} vs {entry2Label}
+      </p>
       <SelectField
         label="Result type"
         name="status"

@@ -42,7 +42,7 @@ function ScoreCells({ scores, wonGame }: { scores: (number | null)[]; wonGame: b
   );
 }
 
-function MatchCard({ match }: { match: BracketMatchView }) {
+export function MatchCard({ match }: { match: BracketMatchView }) {
   const isEntry1Winner = match.winnerLabel !== null && match.winnerLabel === match.entry1Label;
   const isEntry2Winner = match.winnerLabel !== null && match.winnerLabel === match.entry2Label;
   const hasGames = match.games.length > 0;

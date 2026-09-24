@@ -68,12 +68,6 @@ export async function submitMatchResult(
     winnerId = winnerEntryId;
   }
 
-  const allMatches = await prisma.match.findMany({
-    where: { eventId: match.eventId },
-    select: { id: true, round: true, position: true, entry1Id: true, entry2Id: true, winnerId: true },
-  });
-  const recomputed = recomputeAdvancement(allMatches, match.round, match.position, winnerId);
-
   const txOps = [
     prisma.matchGame.deleteMany({ where: { matchId: match.id } }),
     ...(games.length > 0
@@ -86,29 +80,42 @@ export async function submitMatchResult(
     prisma.match.update({ where: { id: match.id }, data: { winnerId, status } }),
   ];
 
-  for (const updated of recomputed) {
-    if (updated.round === match.round && updated.position === match.position) continue;
-    const original = allMatches.find((m) => m.round === updated.round && m.position === updated.position)!;
-    const changed =
-      original.entry1Id !== updated.entry1Id ||
-      original.entry2Id !== updated.entry2Id ||
-      original.winnerId !== updated.winnerId;
-    if (!changed) continue;
+  // Only a real single-elimination bracket has a "next round" to cascade
+  // into — that's single elimination itself, or the knockout stage of
+  // pools+knockout (poolId null there; pool-stage matches always have one,
+  // and round robin never has a round to advance into in the first place).
+  const isBracketMatch = match.event.drawFormat === "SINGLE_ELIMINATION" || match.poolId === null;
+  if (isBracketMatch && match.event.drawFormat !== "ROUND_ROBIN") {
+    const allMatches = await prisma.match.findMany({
+      where: { eventId: match.eventId, poolId: null },
+      select: { id: true, round: true, position: true, entry1Id: true, entry2Id: true, winnerId: true },
+    });
+    const recomputed = recomputeAdvancement(allMatches, match.round, match.position, winnerId);
 
-    const clearingResult = updated.winnerId === null && original.winnerId !== null;
-    txOps.push(
-      prisma.match.update({
-        where: { id: original.id },
-        data: {
-          entry1Id: updated.entry1Id,
-          entry2Id: updated.entry2Id,
-          winnerId: updated.winnerId,
-          ...(clearingResult ? { status: null } : {}),
-        },
-      }),
-    );
-    if (clearingResult) {
-      txOps.push(prisma.matchGame.deleteMany({ where: { matchId: original.id } }));
+    for (const updated of recomputed) {
+      if (updated.round === match.round && updated.position === match.position) continue;
+      const original = allMatches.find((m) => m.round === updated.round && m.position === updated.position)!;
+      const changed =
+        original.entry1Id !== updated.entry1Id ||
+        original.entry2Id !== updated.entry2Id ||
+        original.winnerId !== updated.winnerId;
+      if (!changed) continue;
+
+      const clearingResult = updated.winnerId === null && original.winnerId !== null;
+      txOps.push(
+        prisma.match.update({
+          where: { id: original.id },
+          data: {
+            entry1Id: updated.entry1Id,
+            entry2Id: updated.entry2Id,
+            winnerId: updated.winnerId,
+            ...(clearingResult ? { status: null } : {}),
+          },
+        }),
+      );
+      if (clearingResult) {
+        txOps.push(prisma.matchGame.deleteMany({ where: { matchId: original.id } }));
+      }
     }
   }
 
