@@ -25,6 +25,7 @@ export function EventRow({
   knockoutGamesPerMatch,
   knockoutPointsPerGame,
   entryCount,
+  pendingApprovalCount,
 }: {
   tournamentSlug: string;
   eventId: string;
@@ -36,6 +37,7 @@ export function EventRow({
   knockoutGamesPerMatch: number | null;
   knockoutPointsPerGame: number | null;
   entryCount: number;
+  pendingApprovalCount: number;
 }) {
   const updateWithId = updateEvent.bind(null, eventId);
   const deleteWithId = deleteEvent.bind(null, eventId);
@@ -73,6 +75,11 @@ export function EventRow({
           <span className="text-sm text-slate-500">
             {entryCount} {entryCount === 1 ? "entry" : "entries"}
           </span>
+          {pendingApprovalCount > 0 && (
+            <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-900 dark:text-amber-200">
+              {pendingApprovalCount} awaiting approval
+            </span>
+          )}
         </div>
         <ActionForm
           action={deleteWithId}

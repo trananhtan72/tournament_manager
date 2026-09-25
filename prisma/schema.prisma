@@ -73,6 +73,9 @@ model Event {
 enum EntryStatus {
   NEEDS_PARTNER
   PENDING_PARTNER
+  // Player self-registrations (and accepted doubles pairs) wait here until
+  // the organizer approves them into CONFIRMED.
+  PENDING_APPROVAL
   CONFIRMED
 }
 

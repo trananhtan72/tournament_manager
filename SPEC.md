@@ -23,6 +23,10 @@ The user who creates a tournament is its organizer. (v1: one organizer per tourn
 - Doubles entries are **pairs**: a player registers and either names a partner (who must confirm) or
   registers as "needs partner" so the organizer can pair them.
 - A player may enter multiple events but only once per event.
+- **Registrations need organizer approval.** A player's self-registration (for doubles: once the partner
+  has accepted) goes into a "Pending approval" list showing each player's name and email; the organizer
+  approves it into the confirmed entries or rejects it. Only confirmed entries are drawn. Entries the
+  organizer adds (quick add) or pairs from "needs partner" are confirmed directly.
 - **Scoring**: best of 3 games, rally scoring to 21. A game must be won by 2 points, capped at 30
   (i.e. 30–29 is a valid final score). Validate all entered scores against these rules.
 - **Game format is per event**: chosen from a dropdown when the event is created (and editable until

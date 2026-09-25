@@ -10,6 +10,8 @@ import { computeRoundRobinStandings } from "@/lib/tournament/roundRobin";
 import { ActionForm } from "@/components/ActionForm";
 import { EntrySeedField } from "@/components/EntrySeedField";
 import { RemoveEntryButton } from "@/components/RemoveEntryButton";
+import { PendingEntryActions } from "@/components/PendingEntryActions";
+import { EntryPlayersWithEmail } from "@/components/EntryPlayersWithEmail";
 import { Bracket, type BracketMatchView } from "@/components/Bracket";
 import { StandingsTable, type StandingsRowView } from "@/components/StandingsTable";
 import { publishDraw, unpublishDraw } from "@/app/actions/draws";
@@ -162,6 +164,7 @@ export default async function ManageEventPage({
     notFound();
   }
 
+  const pendingApproval = event.entries.filter((e) => e.status === "PENDING_APPROVAL");
   const confirmed = event.entries.filter((e) => e.status === "CONFIRMED");
   const pendingPartner = event.entries.filter((e) => e.status === "PENDING_PARTNER");
   const needsPartner = event.entries.filter((e) => e.status === "NEEDS_PARTNER");
@@ -237,6 +240,31 @@ export default async function ManageEventPage({
       </div>
 
       <section className="flex flex-col gap-3">
+        <h2 className="text-lg font-semibold">Pending approval ({pendingApproval.length})</h2>
+        {pendingApproval.length === 0 ? (
+          <p className="text-sm text-slate-500">No registrations waiting for approval.</p>
+        ) : (
+          <>
+            <p className="text-sm text-slate-500">
+              Players who registered themselves. Approve a registration to move it to the
+              confirmed entries; only confirmed entries go into the draw.
+            </p>
+            <ul className="flex flex-col gap-2">
+              {pendingApproval.map((entry) => (
+                <li
+                  key={entry.id}
+                  className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 dark:border-amber-700 dark:bg-amber-950/40"
+                >
+                  <EntryPlayersWithEmail players={entry.players} />
+                  <PendingEntryActions entryId={entry.id} />
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+      </section>
+
+      <section className="flex flex-col gap-3">
         <h2 className="text-lg font-semibold">Confirmed entries ({confirmed.length})</h2>
         {confirmed.length === 0 ? (
           <p className="text-sm text-slate-500">No confirmed entries yet.</p>
@@ -245,11 +273,9 @@ export default async function ManageEventPage({
             {confirmed.map((entry) => (
               <li
                 key={entry.id}
-                className="flex items-center justify-between gap-3 rounded-md border border-slate-200 px-4 py-3 dark:border-slate-700"
+                className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-slate-200 px-4 py-3 dark:border-slate-700"
               >
-                <span className="text-sm">
-                  {entry.players.map((p) => getPlayerName(p)).join(" / ")}
-                </span>
+                <EntryPlayersWithEmail players={entry.players} />
                 <div className="flex items-center gap-3">
                   <EntrySeedField
                     key={`${entry.id}:${entry.seed}`}

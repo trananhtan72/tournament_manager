@@ -22,7 +22,7 @@ export default async function OrganizerTournamentPage({
     where: { slug },
     include: {
       events: {
-        include: { _count: { select: { entries: true } } },
+        include: { entries: { select: { status: true } } },
         orderBy: { name: "asc" },
       },
     },
@@ -85,7 +85,8 @@ export default async function OrganizerTournamentPage({
                 pointsPerGame={event.pointsPerGame}
                 knockoutGamesPerMatch={event.knockoutGamesPerMatch}
                 knockoutPointsPerGame={event.knockoutPointsPerGame}
-                entryCount={event._count.entries}
+                entryCount={event.entries.length}
+                pendingApprovalCount={event.entries.filter((e) => e.status === "PENDING_APPROVAL").length}
               />
             ))}
           </ul>

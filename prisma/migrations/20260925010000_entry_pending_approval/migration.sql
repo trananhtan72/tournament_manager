@@ -1,0 +1,3 @@
+-- AlterEnum
+ALTER TYPE "EntryStatus" ADD VALUE 'PENDING_APPROVAL';
+

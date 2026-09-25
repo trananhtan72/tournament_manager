@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 import Link from "next/link";
+import type { EntryStatus } from "@prisma/client";
 import { usePathname } from "next/navigation";
 import {
   registerSingles,
@@ -19,7 +20,7 @@ const initialState: EntryActionState = {};
 
 export type MyEntryInfo = {
   entryId: string;
-  status: "NEEDS_PARTNER" | "PENDING_PARTNER" | "CONFIRMED";
+  status: EntryStatus;
   myRole: "INITIATOR" | "PARTNER";
   myConfirmed: boolean;
   otherPlayer: { name: string; email: string | null } | null;
@@ -75,6 +76,10 @@ function statusText(entry: MyEntryInfo): string {
       return entry.otherPlayer
         ? `You're registered with ${entry.otherPlayer.name}.`
         : "You're registered.";
+    case "PENDING_APPROVAL":
+      return entry.otherPlayer
+        ? `You're registered with ${entry.otherPlayer.name} — waiting for the organizer to approve your registration.`
+        : "You've registered — waiting for the organizer to approve your registration.";
     case "NEEDS_PARTNER":
       return "You're registered — waiting for the organizer to pair you with a partner.";
     case "PENDING_PARTNER":

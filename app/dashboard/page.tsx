@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
+import type { EntryStatus } from "@prisma/client";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { registrationIsOpen } from "@/lib/registrationDeadline";
@@ -12,13 +13,17 @@ import {
 } from "@/app/actions/entries";
 
 function entryStatusText(
-  status: "NEEDS_PARTNER" | "PENDING_PARTNER" | "CONFIRMED",
+  status: EntryStatus,
   myRole: "INITIATOR" | "PARTNER",
   otherPlayerName: string | undefined,
 ): string {
   switch (status) {
     case "CONFIRMED":
       return otherPlayerName ? `Registered with ${otherPlayerName}` : "Registered";
+    case "PENDING_APPROVAL":
+      return otherPlayerName
+        ? `Registered with ${otherPlayerName} — waiting for the organizer's approval`
+        : "Registered — waiting for the organizer's approval";
     case "NEEDS_PARTNER":
       return "Waiting for the organizer to pair you with a partner";
     case "PENDING_PARTNER":

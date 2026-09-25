@@ -9,7 +9,7 @@ import { requireUserId } from "@/lib/session";
 import { registrationIsOpen } from "@/lib/registrationDeadline";
 import { isDoublesCategory } from "@/lib/eventLabels";
 import { notify } from "@/lib/notify";
-import { playerName } from "@/lib/playerDisplay";
+import { playerName, entryLabel } from "@/lib/playerDisplay";
 
 export type EntryActionState = { error?: string };
 
@@ -18,6 +18,32 @@ async function getEventWithTournament(eventId: string) {
     where: { id: eventId },
     include: { tournament: true },
   });
+}
+
+type EventForNotice = {
+  id: string;
+  name: string;
+  tournament: { slug: string; name: string; organizerId: string };
+};
+
+// Self-registrations wait for the organizer's approval, so tell them there's
+// something to review.
+async function notifyOrganizerOfPendingEntry(event: EventForNotice, who: string): Promise<void> {
+  await notify(
+    event.tournament.organizerId,
+    `${who} registered for ${event.name} at ${event.tournament.name} — waiting for your approval.`,
+    `/organizer/${event.tournament.slug}/${event.id}`,
+  );
+}
+
+async function notifyEntryPlayers(
+  players: { userId: string | null }[],
+  message: string,
+  link: string,
+): Promise<void> {
+  await Promise.all(
+    players.flatMap((p) => (p.userId ? [notify(p.userId, message, link)] : [])),
+  );
 }
 
 export async function registerSingles(
@@ -38,7 +64,7 @@ export async function registerSingles(
     await prisma.entry.create({
       data: {
         eventId,
-        status: "CONFIRMED",
+        status: "PENDING_APPROVAL",
         players: {
           create: [{ eventId, userId, role: "INITIATOR", confirmed: true }],
         },
@@ -51,7 +77,12 @@ export async function registerSingles(
     throw error;
   }
 
+  const me = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
+  await notifyOrganizerOfPendingEntry(event, me.name);
+
   revalidatePath(`/t/${event.tournament.slug}`);
+  revalidatePath(`/organizer/${event.tournament.slug}/${eventId}`);
+  revalidatePath(`/organizer/${event.tournament.slug}`);
   revalidatePath("/dashboard");
   return {};
 }
@@ -195,17 +226,21 @@ export async function confirmPartnerInvite(entryId: string): Promise<void> {
       where: { entryId, userId },
       data: { confirmed: true },
     }),
-    prisma.entry.update({ where: { id: entryId }, data: { status: "CONFIRMED" } }),
+    prisma.entry.update({ where: { id: entryId }, data: { status: "PENDING_APPROVAL" } }),
   ]);
 
   // The partner-invite flow only ever involves registered users (never a
   // quick-added guest), so initiator.userId is always set here.
   await notify(
     initiator.userId!,
-    `${playerName(me)} accepted your partner invitation for ${entry.event.name} at ${entry.event.tournament.name}.`,
+    `${playerName(me)} accepted your partner invitation for ${entry.event.name} at ${entry.event.tournament.name}. Your entry now needs the organizer's approval.`,
     `/t/${entry.event.tournament.slug}`,
   );
+  await notifyOrganizerOfPendingEntry(entry.event, entryLabel(entry));
 
+  revalidatePath(`/t/${entry.event.tournament.slug}`);
+  revalidatePath(`/organizer/${entry.event.tournament.slug}/${entry.eventId}`);
+  revalidatePath(`/organizer/${entry.event.tournament.slug}`);
   revalidatePath("/dashboard");
 }
 
@@ -304,21 +339,91 @@ export async function removeEntryAsOrganizer(
   }
   await prisma.entry.delete({ where: { id: entryId } });
 
-  const notifiablePlayers = entry.players.filter(
-    (p): p is typeof p & { userId: string } => p.userId !== null,
-  );
-  await Promise.all(
-    notifiablePlayers.map((p) =>
-      notify(
-        p.userId,
-        `Your entry for ${entry.event.name} at ${entry.event.tournament.name} was removed by the organizer.`,
-        `/t/${entry.event.tournament.slug}`,
-      ),
-    ),
+  await notifyEntryPlayers(
+    entry.players,
+    `Your entry for ${entry.event.name} at ${entry.event.tournament.name} was removed by the organizer.`,
+    `/t/${entry.event.tournament.slug}`,
   );
 
   revalidatePath(`/organizer/${entry.event.tournament.slug}/${entry.eventId}`);
   revalidatePath(`/t/${entry.event.tournament.slug}`);
+  return {};
+}
+
+async function findPendingEntryForOrganizer(entryId: string, userId: string) {
+  const entry = await prisma.entry.findUnique({
+    where: { id: entryId },
+    include: { event: { include: { tournament: true } }, players: true },
+  });
+  if (!entry || entry.event.tournament.organizerId !== userId) {
+    redirect("/organizer");
+  }
+  if (entry.status !== "PENDING_APPROVAL") {
+    return { error: "This registration isn't waiting for approval anymore." };
+  }
+  return { entry };
+}
+
+function revalidateAfterReview(entry: { eventId: string; event: { tournament: { slug: string } } }) {
+  const { slug } = entry.event.tournament;
+  revalidatePath(`/organizer/${slug}/${entry.eventId}`);
+  revalidatePath(`/organizer/${slug}`);
+  revalidatePath(`/t/${slug}`);
+  revalidatePath("/dashboard");
+}
+
+export async function approveEntry(
+  entryId: string,
+  _prevState: EntryActionState,
+  _formData: FormData,
+): Promise<EntryActionState> {
+  const userId = await requireUserId();
+  const found = await findPendingEntryForOrganizer(entryId, userId);
+  if ("error" in found) return found;
+  const { entry } = found;
+
+  // Guarded on the status so a double-click or a second tab can't approve (and
+  // notify) twice.
+  const { count } = await prisma.entry.updateMany({
+    where: { id: entryId, status: "PENDING_APPROVAL" },
+    data: { status: "CONFIRMED" },
+  });
+  if (count === 0) return { error: "This registration isn't waiting for approval anymore." };
+
+  await notifyEntryPlayers(
+    entry.players,
+    `Your registration for ${entry.event.name} at ${entry.event.tournament.name} was approved.`,
+    `/t/${entry.event.tournament.slug}`,
+  );
+
+  revalidateAfterReview(entry);
+  return {};
+}
+
+export async function rejectEntry(
+  entryId: string,
+  _prevState: EntryActionState,
+  _formData: FormData,
+): Promise<EntryActionState> {
+  const userId = await requireUserId();
+  const found = await findPendingEntryForOrganizer(entryId, userId);
+  if ("error" in found) return found;
+  const { entry } = found;
+
+  // A pending entry is never in a draw (draws only take confirmed entries), so
+  // unlike removing a confirmed entry this is fine after the draw is published.
+  const { count } = await prisma.entry.deleteMany({
+    where: { id: entryId, status: "PENDING_APPROVAL" },
+  });
+  if (count === 0) return { error: "This registration isn't waiting for approval anymore." };
+
+  await notifyEntryPlayers(
+    entry.players,
+    `Your registration for ${entry.event.name} at ${entry.event.tournament.name} wasn't approved by the organizer.`,
+    `/t/${entry.event.tournament.slug}`,
+  );
+
+  revalidateAfterReview(entry);
   return {};
 }
 
