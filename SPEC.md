@@ -25,6 +25,10 @@ The user who creates a tournament is its organizer. (v1: one organizer per tourn
 - A player may enter multiple events but only once per event.
 - **Scoring**: best of 3 games, rally scoring to 21. A game must be won by 2 points, capped at 30
   (i.e. 30–29 is a valid final score). Validate all entered scores against these rules.
+- **Game format is per event**: chosen from a dropdown when the event is created (and editable until
+  results exist). Default is the BWF standard (best of 3 to 21); presets for 1 game to 21 and best of 3
+  to 15; or Custom (1/3/5/7 games, 5–50 points). The win-by-2 rule and cap (target + 9) scale with the
+  target. For pools + knockout, the pool stage and the knockout stage each have their own game format.
 - Match result records game-by-game scores, winner, and optional status: completed / walkover / retired.
 
 ## Draw formats (per event, chosen by organizer)

@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { drawFormatLabels, isDoublesCategory } from "@/lib/eventLabels";
 import { playerName as getPlayerName, entryLabel, entryDisplayName } from "@/lib/playerDisplay";
 import { roundName } from "@/lib/tournament/singleElimination";
+import { gameFormatForMatch, describeEventGameFormats, type GameFormat } from "@/lib/tournament/gameFormat";
 import { computeRoundRobinStandings } from "@/lib/tournament/roundRobin";
 import { ActionForm } from "@/components/ActionForm";
 import { EntrySeedField } from "@/components/EntrySeedField";
@@ -42,7 +43,7 @@ type EntryWithPlayers = {
   players: { guestName: string | null; user: { name: string; email: string } | null }[];
 };
 
-function toBracketMatchView(m: MatchWithRelations): BracketMatchView {
+function toBracketMatchView(m: MatchWithRelations, format: GameFormat): BracketMatchView {
   return {
     id: m.id,
     round: m.round,
@@ -55,11 +56,14 @@ function toBracketMatchView(m: MatchWithRelations): BracketMatchView {
     isBye: m.isBye,
     status: m.status,
     games: m.games,
+    gamesPerMatch: format.gamesPerMatch,
   };
 }
 
-function toScorable(m: MatchWithRelations) {
+function toScorable(m: MatchWithRelations, format: GameFormat) {
   return {
+    gamesPerMatch: format.gamesPerMatch,
+    pointsPerGame: format.pointsPerGame,
     matchId: m.id,
     round: m.round,
     position: m.position,
@@ -109,6 +113,8 @@ function MatchResultsList({
               entry1Label={m.entry1Label}
               entry2Id={m.entry2Id}
               entry2Label={m.entry2Label}
+              gamesPerMatch={m.gamesPerMatch}
+              pointsPerGame={m.pointsPerGame}
               existing={m.existing}
             />
           </li>
@@ -169,8 +175,12 @@ export default async function ManageEventPage({
   // or just the knockout stage for pools+knockout (poolId null there; pool
   // matches always have one).
   const bracketPortionMatches = event.matches.filter((m) => m.poolId === null);
-  const bracketMatches: BracketMatchView[] = bracketPortionMatches.map(toBracketMatchView);
-  const scorableBracketMatches = bracketPortionMatches.filter((m) => !m.isBye && m.entry1 && m.entry2).map(toScorable);
+  // Each match is scored under its own stage's rules (see gameFormatForMatch).
+  const formatFor = (m: { poolId: string | null }) => gameFormatForMatch(event, m);
+  const bracketMatches: BracketMatchView[] = bracketPortionMatches.map((m) => toBracketMatchView(m, formatFor(m)));
+  const scorableBracketMatches = bracketPortionMatches
+    .filter((m) => !m.isBye && m.entry1 && m.entry2)
+    .map((m) => toScorable(m, formatFor(m)));
   const totalRounds = bracketMatches.reduce((max, m) => Math.max(max, m.round), 0);
 
   const unpublishWithId = unpublishDraw.bind(null, event.id);
@@ -187,7 +197,7 @@ export default async function ManageEventPage({
 
   // Round robin only: every match lives at round 1, no pools involved.
   const roundRobinStandings = event.drawFormat === "ROUND_ROBIN" ? standingsFor(confirmed, event.matches) : [];
-  const roundRobinScorable = event.drawFormat === "ROUND_ROBIN" ? event.matches.map(toScorable) : [];
+  const roundRobinScorable = event.drawFormat === "ROUND_ROBIN" ? event.matches.map((m) => toScorable(m, formatFor(m))) : [];
 
   // Pools+knockout: each pool's own matches, standings, and completion state.
   const poolsView = event.pools.map((pool) => {
@@ -198,7 +208,7 @@ export default async function ManageEventPage({
       entries: pool.entries,
       matches,
       standings: standingsFor(pool.entries, matches),
-      scorable: matches.map(toScorable),
+      scorable: matches.map((m) => toScorable(m, formatFor(m))),
       complete: matches.length > 0 && matches.every((m) => m.winnerId !== null),
     };
   });
@@ -220,6 +230,9 @@ export default async function ManageEventPage({
         <h1 className="text-xl font-semibold">{event.name}</h1>
         <p className="text-sm text-slate-600 dark:text-slate-400">
           Draw format: {drawFormatLabels[event.drawFormat]}
+        </p>
+        <p className="text-sm text-slate-600 dark:text-slate-400">
+          Game format: {describeEventGameFormats(event)}
         </p>
       </div>
 

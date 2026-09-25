@@ -99,3 +99,74 @@ describe("validateCompletedMatch", () => {
     expect(result.valid).toBe(false);
   });
 });
+
+describe("isValidGameScore with a custom point target", () => {
+  it("applies the same win-by-2 / capped rules around a 15-point target", () => {
+    // Target 15 -> cap 24.
+    expect(isValidGameScore(15, 13, 15)).toBe(true);
+    expect(isValidGameScore(15, 14, 15)).toBe(false); // 1-point margin at the target
+    expect(isValidGameScore(16, 14, 15)).toBe(true);
+    expect(isValidGameScore(17, 14, 15)).toBe(false); // skipped a stopping point
+    expect(isValidGameScore(23, 21, 15)).toBe(true);
+    expect(isValidGameScore(24, 23, 15)).toBe(true); // the cap
+    expect(isValidGameScore(24, 22, 15)).toBe(true);
+    expect(isValidGameScore(24, 21, 15)).toBe(false);
+    expect(isValidGameScore(25, 23, 15)).toBe(false); // past the cap
+  });
+
+  it("no longer accepts 21-point scores when the target is 15", () => {
+    expect(isValidGameScore(21, 10, 15)).toBe(false);
+  });
+});
+
+describe("validateCompletedMatch with other formats", () => {
+  const bo1 = { gamesPerMatch: 1, pointsPerGame: 21 };
+  const bo5to11 = { gamesPerMatch: 5, pointsPerGame: 11 };
+  const g = (a: number, b: number) => ({ entry1Score: a, entry2Score: b });
+
+  it("decides a single-game match from game 1 alone", () => {
+    expect(validateCompletedMatch([g(21, 15)], bo1)).toEqual({ valid: true, winnerSide: 1 });
+    expect(validateCompletedMatch([g(19, 21)], bo1)).toEqual({ valid: true, winnerSide: 2 });
+  });
+
+  it("requires the one game, and rejects a second", () => {
+    expect(validateCompletedMatch([null], bo1).valid).toBe(false);
+    expect(validateCompletedMatch([g(21, 15), g(21, 15)], bo1).valid).toBe(false);
+  });
+
+  it("uses the format's point target, not always 21", () => {
+    expect(validateCompletedMatch([g(11, 5), g(11, 7), g(11, 9)], bo5to11)).toEqual({ valid: true, winnerSide: 1 });
+    expect(validateCompletedMatch([g(21, 5), g(21, 7), g(21, 9)], bo5to11).valid).toBe(false);
+  });
+
+  it("decides a best-of-5 as soon as a side wins 3 games", () => {
+    // 3-0 sweep
+    expect(validateCompletedMatch([g(11, 5), g(11, 7), g(11, 9), null, null], bo5to11)).toEqual({
+      valid: true,
+      winnerSide: 1,
+    });
+    // 3-2 in five games
+    expect(
+      validateCompletedMatch([g(11, 5), g(7, 11), g(11, 9), g(9, 11), g(5, 11)], bo5to11),
+    ).toEqual({ valid: true, winnerSide: 2 });
+  });
+
+  it("rejects extra games after a best-of-5 is already decided", () => {
+    const result = validateCompletedMatch([g(11, 5), g(11, 7), g(11, 9), g(11, 2), null], bo5to11);
+    expect(result.valid).toBe(false);
+  });
+
+  it("asks for another game while a best-of-5 is undecided", () => {
+    const result = validateCompletedMatch([g(11, 5), g(7, 11), g(11, 9), null, null], bo5to11);
+    expect(result.valid).toBe(false);
+  });
+
+  it("rejects a gap: a later game entered without the one before it", () => {
+    expect(validateCompletedMatch([g(11, 5), null, g(11, 9), null, null], bo5to11).valid).toBe(false);
+  });
+
+  it("rejects games beyond the format's maximum", () => {
+    const result = validateCompletedMatch([g(21, 5), g(21, 7), g(21, 9)], { gamesPerMatch: 1, pointsPerGame: 21 });
+    expect(result.valid).toBe(false);
+  });
+});

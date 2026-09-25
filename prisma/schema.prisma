@@ -53,6 +53,14 @@ model Event {
   category       EventCategory
   drawFormat     DrawFormat    @default(SINGLE_ELIMINATION)
   drawPublished  Boolean       @default(false)
+  // Game rules: best of `gamesPerMatch` games, each to `pointsPerGame` (win by
+  // 2, capped 9 above the target — BWF: 21 -> 30). Defaults are the BWF
+  // standard. For pools+knockout these are the POOL-stage rules, and the
+  // knockout* pair sets the knockout stage separately (null = same as pools).
+  gamesPerMatch         Int  @default(3)
+  pointsPerGame         Int  @default(21)
+  knockoutGamesPerMatch Int?
+  knockoutPointsPerGame Int?
   entries        Entry[]
   matches        Match[]
   pools          Pool[]

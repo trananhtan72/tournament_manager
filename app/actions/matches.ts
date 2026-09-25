@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireUserId } from "@/lib/session";
 import { validateCompletedMatch, type GameScore } from "@/lib/tournament/scoring";
+import { gameFormatForMatch } from "@/lib/tournament/gameFormat";
 import { recomputeAdvancement } from "@/lib/tournament/singleElimination";
 
 export type MatchActionState = { error?: string };
@@ -50,16 +51,14 @@ export async function submitMatchResult(
   let games: GameScore[] = [];
 
   if (status === "COMPLETED") {
-    const validation = validateCompletedMatch([
-      parseGameScore(formData, 1),
-      parseGameScore(formData, 2),
-      parseGameScore(formData, 3),
-    ]);
+    // The rules depend on the match: pools+knockout scores its two stages
+    // under separate game formats.
+    const format = gameFormatForMatch(match.event, match);
+    const parsedGames = Array.from({ length: format.gamesPerMatch }, (_, i) => parseGameScore(formData, i + 1));
+    const validation = validateCompletedMatch(parsedGames, format);
     if (!validation.valid) return { error: validation.error };
     winnerId = validation.winnerSide === 1 ? match.entry1Id : match.entry2Id;
-    games = [parseGameScore(formData, 1), parseGameScore(formData, 2), parseGameScore(formData, 3)].filter(
-      (g): g is GameScore => g !== null,
-    );
+    games = parsedGames.filter((g): g is GameScore => g !== null);
   } else {
     const winnerEntryId = formData.get("winnerEntryId");
     if (winnerEntryId !== match.entry1Id && winnerEntryId !== match.entry2Id) {

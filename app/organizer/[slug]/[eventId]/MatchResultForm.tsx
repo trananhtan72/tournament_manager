@@ -7,6 +7,7 @@ import { SelectField } from "@/components/SelectField";
 import { SubmitButton } from "@/components/SubmitButton";
 import { Button } from "@/components/Button";
 import { FormError } from "@/components/FormError";
+import { gameScoreCap, gamesToWin } from "@/lib/tournament/gameFormat";
 
 const initialState: MatchActionState = {};
 
@@ -22,6 +23,8 @@ export function MatchResultForm({
   entry1Label,
   entry2Id,
   entry2Label,
+  gamesPerMatch,
+  pointsPerGame,
   existing,
 }: {
   matchId: string;
@@ -29,12 +32,16 @@ export function MatchResultForm({
   entry1Label: string;
   entry2Id: string;
   entry2Label: string;
+  gamesPerMatch: number;
+  pointsPerGame: number;
   existing: ExistingResult;
 }) {
+  const gameIndexes = Array.from({ length: gamesPerMatch }, (_, i) => i);
+  const minGames = gamesToWin({ gamesPerMatch, pointsPerGame });
   const [isOpen, setIsOpen] = useState(existing.status === null);
   const [status, setStatus] = useState<"COMPLETED" | "WALKOVER" | "RETIRED">(existing.status ?? "COMPLETED");
   const [scores, setScores] = useState(() =>
-    [0, 1, 2].map((n) => ({
+    gameIndexes.map((n) => ({
       entry1: String(existing.games[n]?.entry1Score ?? ""),
       entry2: String(existing.games[n]?.entry2Score ?? ""),
     })),
@@ -61,6 +68,7 @@ export function MatchResultForm({
             isBye: false,
             status: existing.status,
             games: existing.games,
+            gamesPerMatch,
           }}
         />
         <Button type="button" variant="secondary" className="shrink-0 px-2 py-1 text-xs" onClick={() => setIsOpen(true)}>
@@ -88,7 +96,11 @@ export function MatchResultForm({
 
       {status === "COMPLETED" ? (
         <div className="flex flex-col gap-2">
-          {[0, 1, 2].map((i) => (
+          <p className="text-xs text-slate-500">
+            {gamesPerMatch === 1 ? "One game" : `Best of ${gamesPerMatch}`} to {pointsPerGame} — win by 2, capped at{" "}
+            {gameScoreCap(pointsPerGame)}.
+          </p>
+          {gameIndexes.map((i) => (
             <div key={i} className="flex items-center gap-2 text-sm">
               <span className="w-14 shrink-0 text-slate-500">Game {i + 1}</span>
               <input
@@ -120,7 +132,7 @@ export function MatchResultForm({
                 name={`game${i + 1}Entry2`}
                 className="w-16 rounded-md border border-slate-300 bg-white px-2 py-1 text-sm outline-none focus:border-slate-500 dark:border-slate-600 dark:bg-slate-900 dark:text-white"
               />
-              {i === 2 && <span className="text-xs text-slate-400">(only if 1-1)</span>}
+              {i >= minGames && <span className="text-xs text-slate-400">(if needed)</span>}
             </div>
           ))}
         </div>

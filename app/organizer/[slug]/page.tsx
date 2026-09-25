@@ -66,12 +66,25 @@ export default async function OrganizerTournamentPage({
           <ul className="flex flex-col gap-3">
             {tournament.events.map((event) => (
               <EventRow
-                key={`${event.id}:${event.name}:${event.category}:${event.drawFormat}`}
+                key={[
+                  event.id,
+                  event.name,
+                  event.category,
+                  event.drawFormat,
+                  event.gamesPerMatch,
+                  event.pointsPerGame,
+                  event.knockoutGamesPerMatch,
+                  event.knockoutPointsPerGame,
+                ].join(":")}
                 tournamentSlug={tournament.slug}
                 eventId={event.id}
                 name={event.name}
                 category={event.category}
                 drawFormat={event.drawFormat}
+                gamesPerMatch={event.gamesPerMatch}
+                pointsPerGame={event.pointsPerGame}
+                knockoutGamesPerMatch={event.knockoutGamesPerMatch}
+                knockoutPointsPerGame={event.knockoutPointsPerGame}
                 entryCount={event._count.entries}
               />
             ))}

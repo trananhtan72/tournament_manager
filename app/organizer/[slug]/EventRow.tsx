@@ -4,12 +4,11 @@ import { useActionState } from "react";
 import Link from "next/link";
 import { updateEvent, deleteEvent } from "@/app/actions/events";
 import type { EventActionState } from "@/app/actions/events";
-import { SelectField } from "@/components/SelectField";
 import { SubmitButton } from "@/components/SubmitButton";
 import { FormError } from "@/components/FormError";
 import { ActionForm } from "@/components/ActionForm";
 import { EventNameFields } from "@/components/EventNameFields";
-import { drawFormatLabels } from "@/lib/eventLabels";
+import { EventFormatFields } from "@/components/EventFormatFields";
 import { useRemountKey } from "@/lib/useRemountKey";
 import type { DrawFormat, EventCategory } from "@prisma/client";
 
@@ -21,6 +20,10 @@ export function EventRow({
   name,
   category,
   drawFormat,
+  gamesPerMatch,
+  pointsPerGame,
+  knockoutGamesPerMatch,
+  knockoutPointsPerGame,
   entryCount,
 }: {
   tournamentSlug: string;
@@ -28,6 +31,10 @@ export function EventRow({
   name: string;
   category: EventCategory;
   drawFormat: DrawFormat;
+  gamesPerMatch: number;
+  pointsPerGame: number;
+  knockoutGamesPerMatch: number | null;
+  knockoutPointsPerGame: number | null;
   entryCount: number;
 }) {
   const updateWithId = updateEvent.bind(null, eventId);
@@ -39,18 +46,16 @@ export function EventRow({
     <li className="flex flex-col gap-3 rounded-md border border-slate-200 px-4 py-3 dark:border-slate-700">
       <form action={formAction} className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
         <EventNameFields key={remountKey} initialName={name} initialCategory={category} />
-        <SelectField
-          label="Draw format"
-          name="drawFormat"
-          defaultValue={drawFormat}
-          required
-        >
-          {Object.entries(drawFormatLabels).map(([value, label]) => (
-            <option key={value} value={value}>
-              {label}
-            </option>
-          ))}
-        </SelectField>
+        <EventFormatFields
+          key={remountKey}
+          initialDrawFormat={drawFormat}
+          initialGameFormat={{ gamesPerMatch, pointsPerGame }}
+          initialKnockoutGameFormat={
+            knockoutGamesPerMatch !== null && knockoutPointsPerGame !== null
+              ? { gamesPerMatch: knockoutGamesPerMatch, pointsPerGame: knockoutPointsPerGame }
+              : null
+          }
+        />
         <div className="flex gap-2">
           <SubmitButton variant="secondary">Update</SubmitButton>
         </div>

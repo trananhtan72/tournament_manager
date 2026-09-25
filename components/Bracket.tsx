@@ -12,6 +12,8 @@ export type BracketMatchView = {
   isBye: boolean;
   status: "COMPLETED" | "WALKOVER" | "RETIRED" | null;
   games: { entry1Score: number; entry2Score: number }[];
+  /** How many game cells to draw per side (the match's best-of-N). */
+  gamesPerMatch: number;
 };
 
 function entryDisplay(label: string | null, seed: number | null): string | null {
@@ -19,10 +21,10 @@ function entryDisplay(label: string | null, seed: number | null): string | null 
   return seed !== null ? `${label} [${seed}]` : label;
 }
 
-// Always renders three cells (one per possible game), blank where a game
-// wasn't played, so a side's scores line up in fixed columns regardless of
-// how many games the match went to. Whichever side won a given game is
-// bolded, independently of who won the match overall.
+// Always renders one cell per possible game (the match's best-of-N), blank
+// where a game wasn't played, so a side's scores line up in fixed columns
+// regardless of how many games the match went to. Whichever side won a given
+// game is bolded, independently of who won the match overall.
 function ScoreCells({ scores, wonGame }: { scores: (number | null)[]; wonGame: boolean[] }) {
   return (
     <div className="flex shrink-0 gap-1">
@@ -46,8 +48,11 @@ export function MatchCard({ match }: { match: BracketMatchView }) {
   const isEntry1Winner = match.winnerLabel !== null && match.winnerLabel === match.entry1Label;
   const isEntry2Winner = match.winnerLabel !== null && match.winnerLabel === match.entry2Label;
   const hasGames = match.games.length > 0;
-  const entry1Scores = [0, 1, 2].map((i) => match.games[i]?.entry1Score ?? null);
-  const entry2Scores = [0, 1, 2].map((i) => match.games[i]?.entry2Score ?? null);
+  // Never fewer cells than games actually recorded, so nothing is ever hidden.
+  const cellCount = Math.max(match.gamesPerMatch, match.games.length);
+  const cellIndexes = Array.from({ length: cellCount }, (_, i) => i);
+  const entry1Scores = cellIndexes.map((i) => match.games[i]?.entry1Score ?? null);
+  const entry2Scores = cellIndexes.map((i) => match.games[i]?.entry2Score ?? null);
   const entry1WonGame = entry1Scores.map((v, i) => {
     const other = entry2Scores[i];
     return v !== null && other !== null && v > other;

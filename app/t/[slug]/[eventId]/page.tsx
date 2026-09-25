@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { drawFormatLabels } from "@/lib/eventLabels";
 import { entryLabel, entryDisplayName } from "@/lib/playerDisplay";
 import { computeRoundRobinStandings } from "@/lib/tournament/roundRobin";
+import { gameFormatForMatch, describeEventGameFormats, type GameFormat } from "@/lib/tournament/gameFormat";
 import { Bracket, MatchCard, type BracketMatchView } from "@/components/Bracket";
 import { StandingsTable, type StandingsRowView } from "@/components/StandingsTable";
 
@@ -27,7 +28,7 @@ type MatchWithRelations = {
   games: { entry1Score: number; entry2Score: number }[];
 };
 
-function toBracketMatchView(m: MatchWithRelations): BracketMatchView {
+function toBracketMatchView(m: MatchWithRelations, format: GameFormat): BracketMatchView {
   return {
     id: m.id,
     round: m.round,
@@ -40,6 +41,7 @@ function toBracketMatchView(m: MatchWithRelations): BracketMatchView {
     isBye: m.isBye,
     status: m.status,
     games: m.games,
+    gamesPerMatch: format.gamesPerMatch,
   };
 }
 
@@ -56,7 +58,15 @@ function standingsFor(entries: EntryWithPlayers[], matches: MatchWithRelations[]
   return standings.map((s) => ({ ...s, label: entryDisplayName(byId.get(s.entryId)!) }));
 }
 
-function MatchList({ title, matches }: { title: string; matches: MatchWithRelations[] }) {
+function MatchList({
+  title,
+  matches,
+  formatFor,
+}: {
+  title: string;
+  matches: MatchWithRelations[];
+  formatFor: (m: MatchWithRelations) => GameFormat;
+}) {
   if (matches.length === 0) return null;
   return (
     <div className="flex flex-col gap-2">
@@ -77,6 +87,7 @@ function MatchList({ title, matches }: { title: string; matches: MatchWithRelati
               isBye: m.isBye,
               status: m.status,
               games: m.games,
+              gamesPerMatch: formatFor(m).gamesPerMatch,
             }}
           />
         ))}
@@ -117,7 +128,8 @@ export default async function PublicEventPage({
   if (!event || event.tournament.slug !== slug) notFound();
 
   const bracketPortionMatches = event.matches.filter((m) => m.poolId === null);
-  const bracketMatches: BracketMatchView[] = bracketPortionMatches.map(toBracketMatchView);
+  const formatFor = (m: { poolId: string | null }) => gameFormatForMatch(event, m);
+  const bracketMatches: BracketMatchView[] = bracketPortionMatches.map((m) => toBracketMatchView(m, formatFor(m)));
 
   const roundRobinStandings = event.drawFormat === "ROUND_ROBIN" ? standingsFor(event.entries, event.matches) : [];
 
@@ -152,6 +164,9 @@ export default async function PublicEventPage({
         <p className="text-sm text-slate-600 dark:text-slate-400">
           Draw format: {drawFormatLabels[event.drawFormat]}
         </p>
+        <p className="text-sm text-slate-600 dark:text-slate-400">
+          Game format: {describeEventGameFormats(event)}
+        </p>
       </div>
 
       {!event.drawPublished || !hasDrawContent ? (
@@ -161,7 +176,7 @@ export default async function PublicEventPage({
       ) : event.drawFormat === "ROUND_ROBIN" ? (
         <div className="flex flex-col gap-6">
           <StandingsTable rows={roundRobinStandings} />
-          <MatchList title="Matches" matches={event.matches} />
+          <MatchList title="Matches" matches={event.matches} formatFor={formatFor} />
         </div>
       ) : (
         <div className="flex flex-col gap-8">
@@ -169,7 +184,7 @@ export default async function PublicEventPage({
             <div key={pool.id} className="flex flex-col gap-3">
               <h2 className="text-lg font-semibold">{pool.name}</h2>
               <StandingsTable rows={pool.standings} highlightTopN={knockoutGenerated ? undefined : 2} />
-              <MatchList title="Matches" matches={pool.matches} />
+              <MatchList title="Matches" matches={pool.matches} formatFor={formatFor} />
             </div>
           ))}
           {knockoutGenerated && (
