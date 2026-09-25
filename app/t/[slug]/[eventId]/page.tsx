@@ -7,15 +7,21 @@ import { gameFormatForMatch, describeEventGameFormats, type GameFormat } from "@
 import { Bracket, MatchCard, type BracketMatchView } from "@/components/Bracket";
 import { standingsFor, toBracketMatchView, type MatchWithRelations } from "@/lib/matchView";
 import { StandingsTable } from "@/components/StandingsTable";
+import { AutoRefresh } from "@/components/AutoRefresh";
+import { isLiveMatch, loadLiveStates } from "@/lib/liveMatches";
+import { tournamentPhase } from "@/lib/tournamentPhase";
+import type { LiveState } from "@/lib/tournament/liveScoring";
 
 function MatchList({
   title,
   matches,
   formatFor,
+  liveStates,
 }: {
   title: string;
   matches: MatchWithRelations[];
   formatFor: (m: MatchWithRelations) => GameFormat;
+  liveStates: Map<string, LiveState>;
 }) {
   if (matches.length === 0) return null;
   return (
@@ -23,7 +29,7 @@ function MatchList({
       <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300">{title}</h3>
       <div className="flex flex-wrap gap-3">
         {matches.map((m) => (
-          <MatchCard key={m.id} match={toBracketMatchView(m, formatFor(m))} />
+          <MatchCard key={m.id} match={toBracketMatchView(m, formatFor(m), { live: liveStates.get(m.id) ?? null })} />
         ))}
       </div>
     </div>
@@ -73,7 +79,15 @@ export default async function PublicEventPage({
 
   const bracketPortionMatches = event.matches.filter((m) => m.poolId === null);
   const formatFor = (m: { poolId: string | null }) => gameFormatForMatch(event, m);
-  const bracketMatches: BracketMatchView[] = bracketPortionMatches.map((m) => toBracketMatchView(m, formatFor(m)));
+  // Live scores are only public once the draw is.
+  const liveStates = event.drawPublished
+    ? await loadLiveStates(event.matches, formatFor)
+    : new Map<string, LiveState>();
+  const bracketMatches: BracketMatchView[] = bracketPortionMatches.map((m) =>
+    toBracketMatchView(m, formatFor(m), { live: liveStates.get(m.id) ?? null }),
+  );
+  const anyLive = event.matches.some(isLiveMatch);
+  const refreshMs = anyLive ? 6000 : tournamentPhase(event.tournament.startDate, event.tournament.endDate) === "ongoing" ? 30000 : null;
 
   const roundRobinStandings = event.drawFormat === "ROUND_ROBIN" ? standingsFor(event.entries, event.matches) : [];
 
@@ -97,6 +111,7 @@ export default async function PublicEventPage({
 
   return (
     <div className="flex flex-col gap-6">
+      <AutoRefresh intervalMs={event.drawPublished ? refreshMs : null} />
       <div className="flex flex-wrap items-center justify-between gap-2">
         <Link href={`/t/${slug}`} className="text-sm underline">
           ← {event.tournament.name}
@@ -123,7 +138,7 @@ export default async function PublicEventPage({
       ) : event.drawFormat === "ROUND_ROBIN" ? (
         <div className="flex flex-col gap-6">
           <StandingsTable rows={roundRobinStandings} />
-          <MatchList title="Matches" matches={event.matches} formatFor={formatFor} />
+          <MatchList title="Matches" matches={event.matches} formatFor={formatFor} liveStates={liveStates} />
         </div>
       ) : (
         <div className="flex flex-col gap-8">
@@ -131,7 +146,7 @@ export default async function PublicEventPage({
             <div key={pool.id} className="flex flex-col gap-3">
               <h2 className="text-lg font-semibold">{pool.name}</h2>
               <StandingsTable rows={pool.standings} highlightTopN={knockoutGenerated ? undefined : 2} />
-              <MatchList title="Matches" matches={pool.matches} formatFor={formatFor} />
+              <MatchList title="Matches" matches={pool.matches} formatFor={formatFor} liveStates={liveStates} />
             </div>
           ))}
           {knockoutGenerated && (

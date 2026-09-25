@@ -7,12 +7,13 @@ datasource db {
 }
 
 model User {
-  id            String         @id @default(cuid())
+  id            String              @id @default(cuid())
   name          String
-  email         String         @unique
+  email         String              @unique
   passwordHash  String
-  createdAt     DateTime       @default(now())
+  createdAt     DateTime            @default(now())
   tournaments   Tournament[]
+  refereeRoles  TournamentReferee[]
   entryPlayers  EntryPlayer[]
   notifications Notification[]
 }
@@ -29,8 +30,8 @@ enum DrawFormat {
 }
 
 model Tournament {
-  id                   String    @id @default(cuid())
-  slug                 String    @unique
+  id                   String              @id @default(cuid())
+  slug                 String              @unique
   name                 String
   venue                String
   startDate            DateTime
@@ -41,16 +42,35 @@ model Tournament {
   // Optional. Players can withdraw through the end of this day (null = the
   // registration deadline).
   withdrawalDeadline   DateTime?
+  // How many courts the venue has (courts are named "Court 1" … "Court N").
+  courtCount           Int                 @default(12)
   // Optional rich-text regulations document: a ProseMirror doc restricted to
   // the nodes/marks in lib/regulations.ts. Players read it in a popup.
   regulations          Json?
   organizerId          String
-  organizer            User      @relation(fields: [organizerId], references: [id])
+  organizer            User                @relation(fields: [organizerId], references: [id])
   events               Event[]
-  createdAt            DateTime  @default(now())
-  updatedAt            DateTime  @updatedAt
+  referees             TournamentReferee[]
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
 
   @@index([organizerId])
+}
+
+// A registered user the organizer has approved to officiate this tournament's
+// matches. A referee can score only the matches assigned to them (see
+// Match.refereeId); removing a referee unassigns those matches.
+model TournamentReferee {
+  id           String     @id @default(cuid())
+  tournamentId String
+  tournament   Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  userId       String
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  matches      Match[]
+  createdAt    DateTime   @default(now())
+
+  @@unique([tournamentId, userId])
+  @@index([userId])
 }
 
 model Event {
@@ -157,31 +177,57 @@ enum MatchStatus {
 // feeder match. Editing an already-recorded result cascades: any later match
 // whose entries depended on the old winner has its own result cleared too.
 model Match {
-  id          String       @id @default(cuid())
-  eventId     String
-  event       Event        @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  poolId      String?
-  pool        Pool?        @relation(fields: [poolId], references: [id], onDelete: Cascade)
-  round       Int
-  position    Int
-  entry1Id    String?
-  entry1      Entry?       @relation("MatchEntry1", fields: [entry1Id], references: [id])
-  entry2Id    String?
-  entry2      Entry?       @relation("MatchEntry2", fields: [entry2Id], references: [id])
-  winnerId    String?
-  winner      Entry?       @relation("MatchWinner", fields: [winnerId], references: [id])
-  isBye       Boolean      @default(false)
-  status      MatchStatus?
+  id            String             @id @default(cuid())
+  eventId       String
+  event         Event              @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  poolId        String?
+  pool          Pool?              @relation(fields: [poolId], references: [id], onDelete: Cascade)
+  round         Int
+  position      Int
+  entry1Id      String?
+  entry1        Entry?             @relation("MatchEntry1", fields: [entry1Id], references: [id])
+  entry2Id      String?
+  entry2        Entry?             @relation("MatchEntry2", fields: [entry2Id], references: [id])
+  winnerId      String?
+  winner        Entry?             @relation("MatchWinner", fields: [winnerId], references: [id])
+  isBye         Boolean            @default(false)
+  status        MatchStatus?
   // Optional schedule slot. scheduledAt is a "floating" wall-clock time: the
   // UTC fields hold the venue's local time (like the tournament dates, which
   // are stored as UTC midnight), so it's always read and shown in UTC.
-  scheduledAt DateTime?
-  court       String?
-  games       MatchGame[]
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
+  scheduledAt   DateTime?
+  court         String?
+  // Live point-by-point scoring. A match is "live" once liveStartedAt is set
+  // and it has no result yet; firstServer (1 or 2) is which entry served the
+  // first rally. The current score is never stored — it's replayed from
+  // `points` (see lib/tournament/liveScoring.ts).
+  liveStartedAt DateTime?
+  firstServer   Int?
+  // When the match actually began: a venue-local wall-clock time, stored the
+  // same "floating" way as scheduledAt. Saved with every played result.
+  startedAt     DateTime?
+  // The referee assigned to score this match (null = only the organizer).
+  refereeId     String?
+  referee       TournamentReferee? @relation(fields: [refereeId], references: [id], onDelete: SetNull)
+  points        MatchPoint[]
+  games         MatchGame[]
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
 
   @@unique([eventId, round, position])
+}
+
+// One rally in a live-scored match: which side (1 = entry1, 2 = entry2) won
+// it, in order (seq starts at 1). Undo deletes the last one.
+model MatchPoint {
+  id        String   @id @default(cuid())
+  matchId   String
+  match     Match    @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  seq       Int
+  side      Int
+  createdAt DateTime @default(now())
+
+  @@unique([matchId, seq])
 }
 
 model MatchGame {

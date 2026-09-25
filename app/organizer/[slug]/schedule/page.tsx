@@ -6,7 +6,8 @@ import { prisma } from "@/lib/prisma";
 import { entryDisplayName } from "@/lib/playerDisplay";
 import { formatDate } from "@/lib/formatDate";
 import { dayKey, knockoutRoundCount, stageLabel, toDateTimeLocal } from "@/lib/tournament/schedule";
-import { COURT_SUGGESTIONS_ID, MatchScheduleForm } from "@/app/organizer/[slug]/schedule/MatchScheduleForm";
+import { MatchScheduleForm } from "@/app/organizer/[slug]/schedule/MatchScheduleForm";
+import { MatchRefereeForm } from "@/app/organizer/[slug]/referees/MatchRefereeForm";
 
 export const metadata: Metadata = { title: "Match schedule" };
 
@@ -23,6 +24,7 @@ export default async function OrganizerSchedulePage({
   const tournament = await prisma.tournament.findUnique({
     where: { slug },
     include: {
+      referees: { include: { user: { select: { name: true } } } },
       events: {
         orderBy: { name: "asc" },
         include: {
@@ -42,6 +44,9 @@ export default async function OrganizerSchedulePage({
     notFound();
   }
 
+  const refereeChoices = tournament.referees
+    .map((r) => ({ id: r.id, name: r.user.name }))
+    .sort((a, b) => a.name.localeCompare(b.name, "en", { sensitivity: "base" }));
   const firstDay = dayKey(tournament.startDate);
   const lastDay = dayKey(tournament.endDate);
 
@@ -66,9 +71,6 @@ export default async function OrganizerSchedulePage({
 
   const allMatches = events.flatMap(({ groups }) => groups.flatMap((g) => g.matches));
   const scheduledCount = allMatches.filter((m) => m.scheduledAt !== null).length;
-  const courtNames = [
-    ...new Set(allMatches.map((m) => m.court).filter((c): c is string => c !== null)),
-  ].sort((a, b) => a.localeCompare(b, "en", { numeric: true }));
 
   return (
     <div className="flex flex-col gap-6">
@@ -94,12 +96,6 @@ export default async function OrganizerSchedulePage({
           </p>
         )}
       </div>
-
-      <datalist id={COURT_SUGGESTIONS_ID}>
-        {courtNames.map((name) => (
-          <option key={name} value={name} />
-        ))}
-      </datalist>
 
       {events.length === 0 ? (
         <p className="text-sm text-slate-500">
@@ -139,13 +135,29 @@ export default async function OrganizerSchedulePage({
                           </span>
                         )}
                       </div>
-                      <MatchScheduleForm
-                        matchId={match.id}
-                        initialScheduledAt={match.scheduledAt ? toDateTimeLocal(match.scheduledAt) : ""}
-                        initialCourt={match.court ?? ""}
-                        firstDay={firstDay}
-                        lastDay={lastDay}
-                      />
+                      <div className="flex flex-col gap-3">
+                        <MatchScheduleForm
+                          matchId={match.id}
+                          initialScheduledAt={match.scheduledAt ? toDateTimeLocal(match.scheduledAt) : ""}
+                          initialCourt={match.court ?? ""}
+                          courtCount={tournament.courtCount}
+                          firstDay={firstDay}
+                          lastDay={lastDay}
+                        />
+                        {match.status === null ? (
+                          <MatchRefereeForm
+                            matchId={match.id}
+                            currentRefereeId={match.refereeId}
+                            referees={refereeChoices}
+                          />
+                        ) : (
+                          match.refereeId && (
+                            <p className="text-xs text-slate-500">
+                              Referee: {refereeChoices.find((r) => r.id === match.refereeId)?.name ?? "—"}
+                            </p>
+                          )
+                        )}
+                      </div>
                     </li>
                   ))}
                 </ul>

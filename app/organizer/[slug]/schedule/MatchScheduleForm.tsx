@@ -2,18 +2,19 @@
 
 import { useActionState, useState } from "react";
 import { setMatchSchedule, type ScheduleActionState } from "@/app/actions/schedule";
+import { CourtSelect } from "@/components/CourtSelect";
 import { TextField } from "@/components/TextField";
 import { SubmitButton } from "@/components/SubmitButton";
 import { FormError } from "@/components/FormError";
+import { useRemountKey } from "@/lib/useRemountKey";
 
 const initialState: ScheduleActionState = {};
-
-export const COURT_SUGGESTIONS_ID = "court-suggestions";
 
 export function MatchScheduleForm({
   matchId,
   initialScheduledAt,
   initialCourt,
+  courtCount,
   firstDay,
   lastDay,
 }: {
@@ -21,11 +22,15 @@ export function MatchScheduleForm({
   /** "YYYY-MM-DDTHH:mm" for the datetime input, or "" when unscheduled. */
   initialScheduledAt: string;
   initialCourt: string;
+  courtCount: number;
   /** Tournament days ("YYYY-MM-DD") bounding the picker. */
   firstDay: string;
   lastDay: string;
 }) {
   const [state, formAction] = useActionState(setMatchSchedule.bind(null, matchId), initialState);
+  // A native form reset after each save snaps the court dropdown back without
+  // telling React; remounting it keeps what's shown in step with state.
+  const courtKey = useRemountKey(state);
   // Controlled so a rejected save doesn't wipe what was typed (React resets
   // uncontrolled fields after every action).
   const [scheduledAt, setScheduledAt] = useState(initialScheduledAt);
@@ -53,15 +58,16 @@ export function MatchScheduleForm({
           value={scheduledAt}
           onChange={(e) => setScheduledAt(e.target.value)}
         />
-        <TextField
+        <CourtSelect
+          key={courtKey}
           label="Court"
           id={`court-${matchId}`}
           name="court"
-          type="text"
-          list={COURT_SUGGESTIONS_ID}
-          maxLength={40}
-          placeholder="Optional"
-          className="w-32"
+          courtCount={courtCount}
+          valueAs="name"
+          emptyLabel="No court"
+          legacyValue={initialCourt}
+          className="w-36"
           value={court}
           onChange={(e) => setCourt(e.target.value)}
         />

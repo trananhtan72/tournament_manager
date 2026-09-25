@@ -8,8 +8,10 @@ import { ActionForm } from "@/components/ActionForm";
 import { playerName } from "@/lib/playerDisplay";
 import { MatchCard } from "@/components/Bracket";
 import { toBracketMatchView } from "@/lib/matchView";
+import { AutoRefresh } from "@/components/AutoRefresh";
+import { isLiveMatch, loadLiveStates } from "@/lib/liveMatches";
 import { gameFormatForMatch } from "@/lib/tournament/gameFormat";
-import { formatScheduleLabel, knockoutRoundCount, sortSchedule, stageLabel } from "@/lib/tournament/schedule";
+import { formatScheduleLabel, formatStartedLabel, knockoutRoundCount, sortSchedule, stageLabel } from "@/lib/tournament/schedule";
 import {
   confirmPartnerInvite,
   declinePartnerInvite,
@@ -43,6 +45,8 @@ type MyMatchRow = {
     eventId: string;
     scheduledAt: Date | null;
     court: string | null;
+    startedAt: Date | null;
+    status: string | null;
     event: { name: string; tournament: { name: string; slug: string } };
   };
   stage: string;
@@ -51,7 +55,7 @@ type MyMatchRow = {
 
 function MyMatchItem({ row, emptyTimeLabel }: { row: MyMatchRow; emptyTimeLabel: string | null }) {
   const { match, stage, view } = row;
-  const timeLabel = formatScheduleLabel(match) ?? emptyTimeLabel;
+  const timeLabel = (match.status !== null ? formatStartedLabel(match.startedAt) : null) ?? formatScheduleLabel(match) ?? emptyTimeLabel;
   return (
     <li className="flex flex-col gap-2 rounded-md border border-slate-200 px-4 py-3 sm:flex-row sm:items-center sm:gap-4 dark:border-slate-700">
       <div className="flex min-w-0 flex-col gap-0.5 text-sm sm:w-64">
@@ -107,13 +111,17 @@ export default async function DashboardPage() {
       games: { orderBy: { gameNumber: "asc" } },
     },
   });
+  const liveStates = await loadLiveStates(myMatchRecords, (m) => gameFormatForMatch(m.event, m));
   const myMatches = myMatchRecords.map((match) => ({
     match,
     stage: stageLabel(
       { poolName: match.pool?.name ?? null, round: match.round },
       { drawFormat: match.event.drawFormat, knockoutRounds: knockoutRoundCount(match.event.matches) },
     ),
-    view: toBracketMatchView(match, gameFormatForMatch(match.event, match), { showSchedule: false }),
+    view: toBracketMatchView(match, gameFormatForMatch(match.event, match), {
+      showSchedule: false,
+      live: liveStates.get(match.id) ?? null,
+    }),
   }));
   const upcomingMatches = myMatches.filter((r) => r.match.status === null);
   // Timed matches first in play order, then the ones still waiting for a slot.
@@ -146,6 +154,7 @@ export default async function DashboardPage() {
 
   return (
     <div className="flex flex-col gap-8">
+      <AutoRefresh intervalMs={myMatchRecords.some(isLiveMatch) ? 6000 : null} />
       <h1 className="text-xl font-semibold">Dashboard</h1>
 
       {pendingInvites.length > 0 && (

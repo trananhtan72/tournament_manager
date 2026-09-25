@@ -12,7 +12,8 @@ Public visitors can view brackets, schedules, and results without logging in.
 |-----------|------------------------------------------------------------------------|
 | Public    | View tournaments, brackets, schedules, results (read-only, no login)   |
 | Player    | Sign up, register/withdraw for events before the deadline, view own matches |
-| Organizer | Everything: create tournaments/events, manage entries, seed, generate draws, enter scores, edit results |
+| Referee   | Enter scores for the matches the organizer has assigned to them, from a phone or tablet |
+| Organizer | Everything: create tournaments/events, manage entries, seed, generate draws, assign referees, enter scores, edit results |
 
 The user who creates a tournament is its organizer. (v1: one organizer per tournament.)
 
@@ -39,6 +40,17 @@ The user who creates a tournament is its organizer. (v1: one organizer per tourn
   to 15; or Custom (1/3/5/7 games, 5–50 points). The win-by-2 rule and cap (target + 9) scale with the
   target. For pools + knockout, the pool stage and the knockout stage each have their own game format.
 - Match result records game-by-game scores, winner, and optional status: completed / walkover / retired.
+  Every played result (completed or retired) also records **when the match started** — a venue-local
+  wall-clock time, like scheduled times. Live scoring captures it automatically (from the organizer's
+  device clock, correctable when confirming); manual entry has a required "Match started" field that
+  defaults to the scheduled time, else the current time. A walkover was never played, so it has none.
+- **Referees**: the organizer keeps a list of referees per tournament — existing accounts added by email —
+  and can assign one to each match, picking from the list or typing an email (which adds that person). A
+  referee can't be a player in the match they officiate. An assigned referee scores that match live or
+  enters its result (a walkover or retirement too), but only until a result exists; only the organizer
+  can change a saved result. Removing a referee, or reassigning the match, ends their access at once.
+  Referees get an in-app notification when they're added, assigned, unassigned or removed.
+- A tournament has a number of **courts** (default 12, up to 50), named "Court 1" … "Court N".
 - Live point-by-point scoring: a organizer can start a game with option: start live game - One person is assigned as the head referee and provided with an interface to enter the match's live scores. Simultaneously, a link is generated to display the scores on a TV screen or a landscape-oriented iPad; the live score display updates automatically whenever the referee enters a new score.
 ## Draw formats (per event, chosen by organizer)
 
@@ -68,6 +80,10 @@ Draws are regenerable until the organizer "publishes" the draw; after publishing
   - **Players** (`/t/[slug]/players`): everyone with a confirmed entry, A–Z, with a quick search box
     (names only — emails are organizer-only)
 - `/t/[slug]/[event]` — bracket or pool tables for that event, clickable matches showing scores
+- `/t/[slug]/court/[n]` — a court's live scoreboard screen for a TV / iPad (see Live scoring)
+- `/referee` and `/referee/matches/[matchId]` — a referee's own pages: the matches assigned to them,
+  and the touch-friendly scoring screen for each (same live scorer as the organizer's). A "Referee"
+  link appears in the menu for anyone on a referee list.
 - `/dashboard` — player: my registrations, my matches (upcoming with time/court, then results)
 - `/organizer/[slug]/...` — organizer console for one tournament, as tabs (each its own page):
   - **Overview**: totals (events, confirmed entries, pending approval), tournament details, the
@@ -75,16 +91,52 @@ Draws are regenerable until the organizer "publishes" the draw; after publishing
   - **Events**: create/edit/delete events (name, draw format, game format)
   - **Manage entries**: one sub-tab per event — pending approval, confirmed entries (seeds), partner
     pairing, quick add; badges show what's waiting for approval
-  - **Match center**: upcoming matches on the left half (enter results here), played matches on the
-    right half (edit results); a link to the schedule page, where each match gets a time and an
+  - **Match center**: upcoming matches on the left half (enter results here, or score them live at
+    `/organizer/[slug]/matches/[matchId]`), played matches on the right half (edit results); a link to
+    the schedule page, where each match gets a time and an
     optional court (must fall on a tournament day; a court needs a time)
   - **Draws**: every event's draw — generate, publish, swap/move entries, knockout stage, print
+  - **Referees**: the referee list — add by email, remove — with each referee's match counts; matches
+    are assigned to referees from the Match center or the schedule page
 - Auth pages: sign up / sign in (email + password for v1)
 
 ## Score entry flow
 
 Organizer opens a match, enters per-game scores, submits → winner auto-computed, bracket advances
 the winner (or standings recompute for round robin). Editable afterward with recomputation downstream.
+
+### Live point-by-point scoring (milestone 7)
+
+As an alternative to entering finished scores, the organizer can score a match live from the Match
+center ("Score this match live") on a phone-friendly screen:
+
+- The start screen has the **referee assignment** at the top (pick from the list or enter an email).
+  Who serves first is the referee's call after the toss, so once a referee is assigned the organizer's
+  start screen hands it over — "Waiting for {referee} to start the match" — and the referee picks the
+  court and first server on their own device; the organizer can still "start it here on their behalf".
+  With no referee assigned the organizer scores the match themselves and chooses. The court is a
+  required dropdown of the tournament's courts (one live match per court); then tap the side that wins
+  each rally. The score is never stored — every
+  rally is a row in a point log and the state (games, current game, server, game point / match point)
+  is replayed from it by pure, unit-tested rules for the event's game format (win by 2, cap, best of N).
+  Undo removes the last rally. Taps update the screen instantly and are saved in the background; a
+  second device or a lost connection is detected and the screen is resynced to the saved score.
+- When the deciding rally is played the organizer confirms the result; that saves the games and winner
+  and advances the bracket through the same code as manual entry. Walkovers/retirements are entered
+  manually. Entering a result manually, or discarding, throws away an in-progress live score. Bracket
+  swaps are refused while a match involved is live.
+- Each court has a **scoreboard screen** for a TV or iPad at the court: `/t/[slug]/court/[n]`, public,
+  chrome-less and high-contrast, sized for any TV or iPad. It's a two-row scoreboard — a row per player,
+  a column per game: each finished game's score with the game's winner in bold, then the game in
+  progress in light type with the score of the player who just won the rally (the server) enclosed in a
+  green square (`Ann  21  19  [7]` / `Bob  19  21  4`),
+  plus game/match point, then the final score for ten minutes, then the
+  next scheduled match. It refreshes by itself every few seconds and asks the device to stay awake.
+  The scorer and the Match center list each court's link (with a copy button).
+- Everyone else sees it live: a "Live now" section on the Matches tab, a LIVE badge with the current
+  game score and server on match cards (draw pages, dashboard), and a banner on the tournament
+  Overview. Pages refresh by polling (about every 6 seconds while something is live) since the app
+  runs serverless, without websockets.
 
 ## Non-functional
 
@@ -94,7 +146,7 @@ the winner (or standings recompute for round robin). Editable afterward with rec
 
 ## Out of scope for v1 (do NOT build)
 
-- Payments/entry fees, email or push notifications, live point-by-point scoring,
+- Payments/entry fees, email or push notifications,
   rankings across tournaments, multi-organizer permissions, court-level realtime scheduling,
   photo uploads, i18n.
 

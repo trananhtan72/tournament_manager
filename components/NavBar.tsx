@@ -11,7 +11,7 @@ const RECENT_NOTIFICATIONS_LIMIT = 10;
 export async function NavBar() {
   const session = await auth();
 
-  const [recentNotifications, unreadCount] = session?.user?.id
+  const [recentNotifications, unreadCount, refereeRoles] = session?.user?.id
     ? await Promise.all([
         prisma.notification.findMany({
           where: { userId: session.user.id },
@@ -21,8 +21,9 @@ export async function NavBar() {
         prisma.notification.count({
           where: { userId: session.user.id, read: false },
         }),
+        prisma.tournamentReferee.count({ where: { userId: session.user.id } }),
       ])
-    : [[], 0];
+    : [[], 0, 0];
 
   return (
     <header className="border-b border-slate-200 dark:border-slate-800">
@@ -52,6 +53,11 @@ export async function NavBar() {
               <Link href="/dashboard" className="hover:underline">
                 Dashboard
               </Link>
+              {refereeRoles > 0 && (
+                <Link href="/referee" className="hover:underline">
+                  Referee
+                </Link>
+              )}
               <Link href="/organizer" className="hover:underline">
                 Organizer console
               </Link>

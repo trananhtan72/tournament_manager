@@ -62,6 +62,7 @@ export default async function OrganizerOverviewPage({
           startDate={tournament.startDate}
           endDate={tournament.endDate}
           registrationDeadline={tournament.registrationDeadline}
+          courtCount={tournament.courtCount}
           registrationOpensAt={tournament.registrationOpensAt}
           withdrawalDeadline={tournament.withdrawalDeadline}
         />

@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   compareCourts,
+  dateTimeLocalFromDevice,
   dayKey,
+  formatStartedLabel,
   formatDayHeading,
   formatScheduleLabel,
   formatTimeOfDay,
@@ -164,5 +166,29 @@ describe("knockoutRoundCount", () => {
     ).toBe(2);
     expect(knockoutRoundCount([{ poolId: "p1", round: 0 }])).toBe(0);
     expect(knockoutRoundCount([])).toBe(0);
+  });
+});
+
+describe("dateTimeLocalFromDevice", () => {
+  it("reads the device's own local wall-clock time, in datetime-local format", () => {
+    // Built from local components, so this holds in any time zone.
+    expect(dateTimeLocalFromDevice(new Date(2026, 11, 1, 9, 5))).toBe("2026-12-01T09:05");
+    expect(dateTimeLocalFromDevice(new Date(2026, 0, 31, 23, 59))).toBe("2026-01-31T23:59");
+    expect(dateTimeLocalFromDevice(new Date(2026, 5, 7, 0, 0))).toBe("2026-06-07T00:00");
+  });
+
+  it("round-trips through parseDateTimeLocal to the same floating time", () => {
+    const value = dateTimeLocalFromDevice(new Date(2026, 11, 1, 14, 30));
+    expect(parseDateTimeLocal(value)?.toISOString()).toBe("2026-12-01T14:30:00.000Z");
+  });
+});
+
+describe("formatStartedLabel", () => {
+  it("says when the match started, in floating time", () => {
+    expect(plain(formatStartedLabel(at("2026-12-01T09:07")))).toBe("Started Tue, Dec 1 · 9:07 AM");
+  });
+
+  it("is null without a start time", () => {
+    expect(formatStartedLabel(null)).toBeNull();
   });
 });

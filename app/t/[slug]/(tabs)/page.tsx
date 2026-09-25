@@ -8,6 +8,8 @@ import { formatDate } from "@/lib/formatDate";
 import { effectiveWithdrawalDeadline, registrationStatus, withdrawalIsOpen } from "@/lib/registrationDeadline";
 import { playerName, playerEmail } from "@/lib/playerDisplay";
 import { regulationsForDisplay } from "@/lib/regulations";
+import { tournamentPhase } from "@/lib/tournamentPhase";
+import { AutoRefresh } from "@/components/AutoRefresh";
 import { RegulationsContent } from "@/components/RegulationsContent";
 import { RegulationsDialog } from "@/components/RegulationsDialog";
 import {
@@ -91,6 +93,16 @@ export default async function OverviewTab({ params }: PageProps<"/t/[slug]">) {
     });
   }
 
+  const liveCount = await prisma.match.count({
+    where: {
+      liveStartedAt: { not: null },
+      status: null,
+      event: { tournamentId: tournament.id, drawPublished: true },
+    },
+  });
+  // Fast while something is live; slow while the tournament is on, so a match that starts shows up.
+  const refreshMs = liveCount > 0 ? 6000 : tournamentPhase(tournament.startDate, tournament.endDate) === "ongoing" ? 30000 : null;
+
   const status = registrationStatus(tournament);
   const badge = statusBadge[status];
   const withdrawalOpen = withdrawalIsOpen(tournament);
@@ -99,6 +111,16 @@ export default async function OverviewTab({ params }: PageProps<"/t/[slug]">) {
 
   return (
     <div className="flex flex-col gap-8">
+      <AutoRefresh intervalMs={refreshMs} />
+      {liveCount > 0 && (
+        <Link
+          href={`/t/${slug}/matches`}
+          className="flex items-center gap-2 rounded-md border border-red-200 px-4 py-3 text-sm font-medium text-red-700 hover:bg-red-50 dark:border-red-900 dark:text-red-300 dark:hover:bg-red-950/40"
+        >
+          <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-red-600 dark:bg-red-400" aria-hidden />
+          {liveCount} {liveCount === 1 ? "match is" : "matches are"} live now — watch the scores →
+        </Link>
+      )}
       <section aria-labelledby="signup-heading" className="flex flex-col gap-3">
         <h2 id="signup-heading" className="text-lg font-semibold">
           Sign up &amp; dates

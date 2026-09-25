@@ -20,6 +20,7 @@ export function EditTournamentForm({
   startDate,
   endDate,
   registrationDeadline,
+  courtCount: initialCourtCount,
   registrationOpensAt,
   withdrawalDeadline,
 }: {
@@ -29,6 +30,7 @@ export function EditTournamentForm({
   startDate: Date;
   endDate: Date;
   registrationDeadline: Date;
+  courtCount: number;
   registrationOpensAt: Date | null;
   withdrawalDeadline: Date | null;
 }) {
@@ -41,6 +43,7 @@ export function EditTournamentForm({
   const [registrationDeadlineValue, setRegistrationDeadlineValue] = useState(
     toDateInputValue(registrationDeadline),
   );
+  const [courtCount, setCourtCount] = useState(String(initialCourtCount));
   const [registrationOpensAtValue, setRegistrationOpensAtValue] = useState(toDateInputValue(registrationOpensAt));
   const [withdrawalDeadlineValue, setWithdrawalDeadlineValue] = useState(toDateInputValue(withdrawalDeadline));
 
@@ -88,6 +91,23 @@ export function EditTournamentForm({
           onChange={(e) => setRegistrationDeadlineValue(e.target.value)}
         />
       </div>
+      <TextField
+        label="Number of courts"
+        name="courtCount"
+        type="number"
+        inputMode="numeric"
+        required
+        min={1}
+        max={50}
+        step={1}
+        className="w-32"
+        value={courtCount}
+        onChange={(e) => setCourtCount(e.target.value)}
+      />
+      <p className="-mt-2 text-xs text-slate-500">
+        Matches are assigned to Court 1 … Court N when they&apos;re scored live, and each court gets its own
+        scoreboard screen for a TV or tablet.
+      </p>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <TextField
           label="Entries open (optional)"

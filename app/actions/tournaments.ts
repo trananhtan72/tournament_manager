@@ -8,6 +8,7 @@ import { revalidateTournament } from "@/lib/revalidate";
 import { prisma } from "@/lib/prisma";
 import { slugify } from "@/lib/slugify";
 import { requireUserId } from "@/lib/session";
+import { MAX_COURTS, MIN_COURTS } from "@/lib/tournament/courts";
 import {
   MAX_REGULATIONS_JSON_LENGTH,
   isRegulationsEmpty,
@@ -32,6 +33,11 @@ const tournamentSchema = z
     registrationDeadline: z.coerce.date({
       error: "Enter a valid registration deadline",
     }),
+    courtCount: z.coerce
+      .number({ error: `The number of courts must be between ${MIN_COURTS} and ${MAX_COURTS}` })
+      .int({ error: `The number of courts must be between ${MIN_COURTS} and ${MAX_COURTS}` })
+      .min(MIN_COURTS, { error: `The number of courts must be between ${MIN_COURTS} and ${MAX_COURTS}` })
+      .max(MAX_COURTS, { error: `The number of courts must be between ${MIN_COURTS} and ${MAX_COURTS}` }),
     registrationOpensAt: optionalDate("Enter a valid date for when entries open"),
     withdrawalDeadline: optionalDate("Enter a valid withdrawal deadline"),
   })
@@ -63,6 +69,7 @@ function tournamentFormValues(formData: FormData) {
     startDate: formData.get("startDate"),
     endDate: formData.get("endDate"),
     registrationDeadline: formData.get("registrationDeadline"),
+    courtCount: formData.get("courtCount"),
     registrationOpensAt: formData.get("registrationOpensAt") ?? "",
     withdrawalDeadline: formData.get("withdrawalDeadline") ?? "",
   };

@@ -337,8 +337,13 @@ export async function swapBracketEntries(
 
   const allMatches = await prisma.match.findMany({
     where: { eventId },
-    select: { id: true, round: true, position: true, entry1Id: true, entry2Id: true, status: true },
+    select: { id: true, round: true, position: true, entry1Id: true, entry2Id: true, status: true, liveStartedAt: true },
   });
+  const involvesEntry = (m: { entry1Id: string | null; entry2Id: string | null }) =>
+    m.entry1Id === entryIdA || m.entry2Id === entryIdA || m.entry1Id === entryIdB || m.entry2Id === entryIdB;
+  if (allMatches.some((m) => m.status === null && m.liveStartedAt !== null && involvesEntry(m))) {
+    return { error: "Can't swap — one of these entries is in a match being scored live. Finish or discard the live score first." };
+  }
   const alreadyPlayed = allMatches.some(
     (m) => m.status !== null && (m.entry1Id === entryIdA || m.entry2Id === entryIdA || m.entry1Id === entryIdB || m.entry2Id === entryIdB),
   );

@@ -2,8 +2,9 @@ import type { BracketMatchView } from "@/components/Bracket";
 import type { StandingsRowView } from "@/components/StandingsTable";
 import { entryDisplayName, entryLabel } from "@/lib/playerDisplay";
 import { computeRoundRobinStandings } from "@/lib/tournament/roundRobin";
-import { formatScheduleLabel } from "@/lib/tournament/schedule";
+import { formatScheduleLabel, formatStartedLabel, toDateTimeLocal } from "@/lib/tournament/schedule";
 import type { GameFormat } from "@/lib/tournament/gameFormat";
+import type { LiveState } from "@/lib/tournament/liveScoring";
 
 export type EntryWithPlayers = {
   id: string;
@@ -21,11 +22,22 @@ export type MatchWithRelations = {
   winnerId: string | null;
   scheduledAt: Date | null;
   court: string | null;
+  liveStartedAt: Date | null;
+  firstServer: number | null;
+  startedAt: Date | null;
   entry1: EntryWithPlayers | null;
   entry2: EntryWithPlayers | null;
   winner: EntryWithPlayers | null;
   games: { entry1Score: number; entry2Score: number }[];
 };
+
+// A played match shows when it actually started; otherwise when it's scheduled.
+function timeLabelFor(m: MatchWithRelations): string | null {
+  if (m.status !== null && m.startedAt) {
+    return `${formatStartedLabel(m.startedAt)}${m.court ? ` · ${m.court}` : ""}`;
+  }
+  return formatScheduleLabel(m);
+}
 
 /**
  * The data a MatchCard draws. Pass `showSchedule: false` where the surrounding
@@ -34,7 +46,7 @@ export type MatchWithRelations = {
 export function toBracketMatchView(
   m: MatchWithRelations,
   format: GameFormat,
-  { showSchedule = true }: { showSchedule?: boolean } = {},
+  { showSchedule = true, live = null }: { showSchedule?: boolean; live?: LiveState | null } = {},
 ): BracketMatchView {
   return {
     id: m.id,
@@ -47,9 +59,18 @@ export function toBracketMatchView(
     winnerLabel: m.winner ? entryLabel(m.winner) : null,
     isBye: m.isBye,
     status: m.status,
-    games: m.games,
+    // A live match shows the games so far, including the one being played.
+    games: live ? live.games.map((g) => ({ entry1Score: g.score1, entry2Score: g.score2 })) : m.games,
     gamesPerMatch: format.gamesPerMatch,
-    scheduleLabel: showSchedule ? formatScheduleLabel(m) : null,
+    scheduleLabel: showSchedule ? timeLabelFor(m) : null,
+    live: live
+      ? {
+          currentGameIndex: live.currentGame - 1,
+          serving: live.server,
+          gamePoint: live.gamePoint,
+          matchPoint: live.matchPoint,
+        }
+      : null,
   };
 }
 
@@ -65,10 +86,14 @@ export function toScorable(m: MatchWithRelations, format: GameFormat) {
     entry1Label: entryDisplayName(m.entry1!),
     entry2Id: m.entry2!.id,
     entry2Label: entryDisplayName(m.entry2!),
+    /** The scheduled time, as a datetime-local value — the natural default for when it started. */
+    scheduledAt: m.scheduledAt ? toDateTimeLocal(m.scheduledAt) : null,
+    startedLabel: formatStartedLabel(m.startedAt),
     existing: {
       status: m.status,
       winnerId: m.winnerId,
       games: m.games,
+      startedAt: m.startedAt ? toDateTimeLocal(m.startedAt) : null,
     },
   };
 }

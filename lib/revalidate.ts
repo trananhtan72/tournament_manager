@@ -9,4 +9,5 @@ import { revalidatePath } from "next/cache";
 export function revalidateTournament(slug: string): void {
   revalidatePath(`/organizer/${slug}`, "layout");
   revalidatePath(`/t/${slug}`, "layout");
+  revalidatePath("/referee", "layout");
 }

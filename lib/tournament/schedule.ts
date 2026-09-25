@@ -73,6 +73,22 @@ export function formatScheduleLabel(slot: { scheduledAt: Date | null; court: str
   return parts.join(" · ");
 }
 
+/**
+ * "2026-12-01T09:05" from a Date read in the device's own time zone. The
+ * organizer's phone is at the venue, so its clock is the venue's wall-clock
+ * time — the same "floating" kind of time the schedule uses.
+ */
+export function dateTimeLocalFromDevice(date: Date = new Date()): string {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+/** "Started Tue, Dec 1 · 9:07 AM", or null if it has no start time. */
+export function formatStartedLabel(startedAt: Date | null): string | null {
+  if (!startedAt) return null;
+  return `Started ${shortDayFormatter.format(startedAt)} · ${formatTimeOfDay(startedAt)}`;
+}
+
 /** Natural order ("Court 2" before "Court 10"); matches without a court go last. */
 export function compareCourts(a: string | null, b: string | null): number {
   if (a === b) return 0;

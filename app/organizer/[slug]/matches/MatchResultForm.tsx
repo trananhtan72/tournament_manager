@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useCallback, useState } from "react";
 import { submitMatchResult, type MatchActionState } from "@/app/actions/matches";
 import { MatchCard } from "@/components/Bracket";
 import { SelectField } from "@/components/SelectField";
@@ -8,6 +8,7 @@ import { SubmitButton } from "@/components/SubmitButton";
 import { Button } from "@/components/Button";
 import { FormError } from "@/components/FormError";
 import { gameScoreCap, gamesToWin } from "@/lib/tournament/gameFormat";
+import { dateTimeLocalFromDevice } from "@/lib/tournament/schedule";
 
 const initialState: MatchActionState = {};
 
@@ -15,6 +16,8 @@ type ExistingResult = {
   status: "COMPLETED" | "WALKOVER" | "RETIRED" | null;
   winnerId: string | null;
   games: { entry1Score: number; entry2Score: number }[];
+  /** When it started, as a datetime-local value, once a result has been saved. */
+  startedAt: string | null;
 };
 
 export function MatchResultForm({
@@ -25,6 +28,9 @@ export function MatchResultForm({
   entry2Label,
   gamesPerMatch,
   pointsPerGame,
+  scheduledAt,
+  startedLabel,
+  allowEdit = true,
   existing,
 }: {
   matchId: string;
@@ -34,6 +40,12 @@ export function MatchResultForm({
   entry2Label: string;
   gamesPerMatch: number;
   pointsPerGame: number;
+  /** The scheduled time (datetime-local), used as the default start time. */
+  scheduledAt: string | null;
+  /** "Started Tue, Dec 1 · 9:07 AM" for a saved result. */
+  startedLabel: string | null;
+  /** False where a saved result mustn't be editable (a referee can't change one). */
+  allowEdit?: boolean;
   existing: ExistingResult;
 }) {
   const gameIndexes = Array.from({ length: gamesPerMatch }, (_, i) => i);
@@ -47,6 +59,12 @@ export function MatchResultForm({
     })),
   );
   const [winnerEntryId, setWinnerEntryId] = useState(existing.winnerId ?? "");
+  // Every played match records when it began: what was saved, else when it was
+  // scheduled, else right now — filled in on the device when the field appears,
+  // since the server doesn't know the venue's time zone.
+  const prefillNow = useCallback((input: HTMLInputElement | null) => {
+    if (input && input.value === "") input.value = dateTimeLocalFromDevice();
+  }, []);
 
   const action = submitMatchResult.bind(null, matchId);
   const [state, formAction] = useActionState(action, initialState);
@@ -55,6 +73,7 @@ export function MatchResultForm({
     const winnerLabel = existing.winnerId === entry1Id ? entry1Label : existing.winnerId === entry2Id ? entry2Label : null;
     return (
       <div className="flex items-center justify-between gap-3">
+        <div className="flex min-w-0 flex-col gap-1">
         <MatchCard
           match={{
             id: matchId,
@@ -71,9 +90,13 @@ export function MatchResultForm({
             gamesPerMatch,
           }}
         />
-        <Button type="button" variant="secondary" className="shrink-0 px-2 py-1 text-xs" onClick={() => setIsOpen(true)}>
-          Edit result
-        </Button>
+        {startedLabel && <span className="text-xs text-slate-500">{startedLabel}</span>}
+        </div>
+        {allowEdit && (
+          <Button type="button" variant="secondary" className="shrink-0 px-2 py-1 text-xs" onClick={() => setIsOpen(true)}>
+            Edit result
+          </Button>
+        )}
       </div>
     );
   }
@@ -149,6 +172,21 @@ export function MatchResultForm({
           <option value={entry1Id}>{entry1Label}</option>
           <option value={entry2Id}>{entry2Label}</option>
         </SelectField>
+      )}
+
+      {status !== "WALKOVER" && (
+        <label className="flex flex-col gap-1 text-sm font-medium text-slate-700 dark:text-slate-200">
+          Match started
+          <input
+            type="datetime-local"
+            name="startedAt"
+            required
+            defaultValue={existing.startedAt ?? scheduledAt ?? ""}
+            ref={prefillNow}
+            className="w-56 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-normal text-slate-900 outline-none focus:border-slate-500 dark:border-slate-600 dark:bg-slate-900 dark:text-white"
+          />
+          <span className="text-xs font-normal text-slate-500">Venue time. Saved with the result.</span>
+        </label>
       )}
 
       <FormError message={state.error} />

@@ -16,6 +16,7 @@ export function CreateTournamentForm() {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [registrationDeadline, setRegistrationDeadline] = useState("");
+  const [courtCount, setCourtCount] = useState("12");
   const [registrationOpensAt, setRegistrationOpensAt] = useState("");
   const [withdrawalDeadline, setWithdrawalDeadline] = useState("");
 
@@ -63,6 +64,23 @@ export function CreateTournamentForm() {
           onChange={(e) => setRegistrationDeadline(e.target.value)}
         />
       </div>
+      <TextField
+        label="Number of courts"
+        name="courtCount"
+        type="number"
+        inputMode="numeric"
+        required
+        min={1}
+        max={50}
+        step={1}
+        className="w-32"
+        value={courtCount}
+        onChange={(e) => setCourtCount(e.target.value)}
+      />
+      <p className="-mt-2 text-xs text-slate-500">
+        Matches are assigned to Court 1 … Court N when they&apos;re scored live, and each court gets its own
+        scoreboard screen for a TV or tablet.
+      </p>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <TextField
           label="Entries open (optional)"

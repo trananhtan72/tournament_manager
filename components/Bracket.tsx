@@ -16,6 +16,15 @@ export type BracketMatchView = {
   gamesPerMatch: number;
   /** "Tue, Dec 1 · 9:30 AM · Court 2" — shown above the players when set. */
   scheduleLabel?: string | null;
+  /** Set while the match is being scored live; `games` then includes the game in progress. */
+  live?: {
+    /** Index into `games` of the game being played. */
+    currentGameIndex: number;
+    /** Which side (1 or 2) serves the next rally. */
+    serving: 1 | 2 | null;
+    gamePoint: (1 | 2)[];
+    matchPoint: (1 | 2)[];
+  } | null;
 };
 
 function entryDisplay(label: string | null, seed: number | null): string | null {
@@ -27,16 +36,26 @@ function entryDisplay(label: string | null, seed: number | null): string | null 
 // where a game wasn't played, so a side's scores line up in fixed columns
 // regardless of how many games the match went to. Whichever side won a given
 // game is bolded, independently of who won the match overall.
-function ScoreCells({ scores, wonGame }: { scores: (number | null)[]; wonGame: boolean[] }) {
+function ScoreCells({
+  scores,
+  wonGame,
+  liveIndex = null,
+}: {
+  scores: (number | null)[];
+  wonGame: boolean[];
+  liveIndex?: number | null;
+}) {
   return (
     <div className="flex shrink-0 gap-1">
       {scores.map((value, i) => (
         <span
           key={i}
           className={`w-4 text-center text-xs tabular-nums ${
-            wonGame[i]
-              ? "font-semibold text-slate-900 dark:text-white print:text-slate-900"
-              : "text-slate-500 dark:text-slate-400 print:text-slate-600"
+            i === liveIndex
+              ? "rounded bg-red-100 font-semibold text-red-700 dark:bg-red-950 dark:text-red-300"
+              : wonGame[i]
+                ? "font-semibold text-slate-900 dark:text-white print:text-slate-900"
+                : "text-slate-500 dark:text-slate-400 print:text-slate-600"
           }`}
         >
           {value ?? ""}
@@ -46,7 +65,18 @@ function ScoreCells({ scores, wonGame }: { scores: (number | null)[]; wonGame: b
   );
 }
 
+function ServingDot() {
+  return (
+    <span
+      className="mr-1.5 inline-block h-1.5 w-1.5 rounded-full bg-emerald-500 align-middle"
+      title="Serving"
+      aria-label="Serving"
+    />
+  );
+}
+
 export function MatchCard({ match }: { match: BracketMatchView }) {
+  const liveIndex = match.live ? match.live.currentGameIndex : null;
   const isEntry1Winner = match.winnerLabel !== null && match.winnerLabel === match.entry1Label;
   const isEntry2Winner = match.winnerLabel !== null && match.winnerLabel === match.entry2Label;
   const hasGames = match.games.length > 0;
@@ -70,18 +100,27 @@ export function MatchCard({ match }: { match: BracketMatchView }) {
 
   return (
     <div className="flex w-64 flex-col gap-1 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 print:border-slate-300 print:bg-white">
-      {match.scheduleLabel && (
-        <span className="truncate text-xs text-slate-500 dark:text-slate-400 print:text-slate-600">
-          {match.scheduleLabel}
+      {match.live ? (
+        <span className="flex items-center gap-1.5 truncate text-xs font-semibold text-red-600 dark:text-red-400">
+          <span className="h-2 w-2 shrink-0 animate-pulse rounded-full bg-red-600 dark:bg-red-400" aria-hidden />
+          LIVE · Game {match.live.currentGameIndex + 1}
+          {match.live.matchPoint.length > 0 ? " · Match point" : match.live.gamePoint.length > 0 ? " · Game point" : ""}
         </span>
+      ) : (
+        match.scheduleLabel && (
+          <span className="truncate text-xs text-slate-500 dark:text-slate-400 print:text-slate-600">
+            {match.scheduleLabel}
+          </span>
+        )
       )}
       <div className="flex items-center justify-between gap-2">
         <span
           className={`truncate ${isEntry1Winner ? "font-semibold text-slate-900 dark:text-white print:text-slate-900" : "text-slate-600 dark:text-slate-400 print:text-slate-600"}`}
         >
+          {match.live?.serving === 1 && <ServingDot />}
           {entryDisplay(match.entry1Label, match.entry1Seed) ?? "TBD"}
         </span>
-        {hasGames && <ScoreCells scores={entry1Scores} wonGame={entry1WonGame} />}
+        {hasGames && <ScoreCells scores={entry1Scores} wonGame={entry1WonGame} liveIndex={liveIndex} />}
         {entry1StatusLabel && (
           <span className="shrink-0 text-xs text-slate-400 dark:text-slate-500 print:text-slate-500">
             {entry1StatusLabel}
@@ -93,9 +132,10 @@ export function MatchCard({ match }: { match: BracketMatchView }) {
         <span
           className={`truncate ${isEntry2Winner ? "font-semibold text-slate-900 dark:text-white print:text-slate-900" : "text-slate-600 dark:text-slate-400 print:text-slate-600"}`}
         >
+          {match.live?.serving === 2 && <ServingDot />}
           {match.isBye ? "Bye" : (entryDisplay(match.entry2Label, match.entry2Seed) ?? "TBD")}
         </span>
-        {hasGames && !match.isBye && <ScoreCells scores={entry2Scores} wonGame={entry2WonGame} />}
+        {hasGames && !match.isBye && <ScoreCells scores={entry2Scores} wonGame={entry2WonGame} liveIndex={liveIndex} />}
         {entry2StatusLabel && (
           <span className="shrink-0 text-xs text-slate-400 dark:text-slate-500 print:text-slate-500">
             {entry2StatusLabel}

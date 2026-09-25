@@ -3,9 +3,11 @@
 import { revalidateTournament } from "@/lib/revalidate";
 import { prisma } from "@/lib/prisma";
 import { requireUserId } from "@/lib/session";
+import { recordMatchResult } from "@/lib/recordMatchResult";
 import { validateCompletedMatch, type GameScore } from "@/lib/tournament/scoring";
 import { gameFormatForMatch } from "@/lib/tournament/gameFormat";
-import { recomputeAdvancement } from "@/lib/tournament/singleElimination";
+import { parseDateTimeLocal } from "@/lib/tournament/schedule";
+import { mayRecordResult, scoringRole } from "@/lib/scoringAccess";
 
 export type MatchActionState = { error?: string };
 
@@ -30,10 +32,19 @@ export async function submitMatchResult(
 
   const match = await prisma.match.findUnique({
     where: { id: matchId },
-    include: { event: { include: { tournament: true } } },
+    include: { event: { include: { tournament: true } }, referee: { select: { userId: true } } },
   });
-  if (!match || match.event.tournament.organizerId !== userId) {
+  const role = match
+    ? scoringRole(userId, {
+        organizerId: match.event.tournament.organizerId,
+        refereeUserId: match.referee?.userId ?? null,
+      })
+    : null;
+  if (!match || !role) {
     return { error: "Match not found." };
+  }
+  if (!mayRecordResult(role, match.status !== null)) {
+    return { error: "This match already has a result — ask the organizer if it needs changing." };
   }
   if (!match.event.drawPublished) {
     return { error: "Publish the draw before entering scores." };
@@ -67,58 +78,16 @@ export async function submitMatchResult(
     winnerId = winnerEntryId;
   }
 
-  const txOps = [
-    prisma.matchGame.deleteMany({ where: { matchId: match.id } }),
-    ...(games.length > 0
-      ? [
-          prisma.matchGame.createMany({
-            data: games.map((g, i) => ({ matchId: match.id, gameNumber: i + 1, ...g })),
-          }),
-        ]
-      : []),
-    prisma.match.update({ where: { id: match.id }, data: { winnerId, status } }),
-  ];
-
-  // Only a real single-elimination bracket has a "next round" to cascade
-  // into — that's single elimination itself, or the knockout stage of
-  // pools+knockout (poolId null there; pool-stage matches always have one,
-  // and round robin never has a round to advance into in the first place).
-  const isBracketMatch = match.event.drawFormat === "SINGLE_ELIMINATION" || match.poolId === null;
-  if (isBracketMatch && match.event.drawFormat !== "ROUND_ROBIN") {
-    const allMatches = await prisma.match.findMany({
-      where: { eventId: match.eventId, poolId: null },
-      select: { id: true, round: true, position: true, entry1Id: true, entry2Id: true, winnerId: true },
-    });
-    const recomputed = recomputeAdvancement(allMatches, match.round, match.position, winnerId);
-
-    for (const updated of recomputed) {
-      if (updated.round === match.round && updated.position === match.position) continue;
-      const original = allMatches.find((m) => m.round === updated.round && m.position === updated.position)!;
-      const changed =
-        original.entry1Id !== updated.entry1Id ||
-        original.entry2Id !== updated.entry2Id ||
-        original.winnerId !== updated.winnerId;
-      if (!changed) continue;
-
-      const clearingResult = updated.winnerId === null && original.winnerId !== null;
-      txOps.push(
-        prisma.match.update({
-          where: { id: original.id },
-          data: {
-            entry1Id: updated.entry1Id,
-            entry2Id: updated.entry2Id,
-            winnerId: updated.winnerId,
-            ...(clearingResult ? { status: null } : {}),
-          },
-        }),
-      );
-      if (clearingResult) {
-        txOps.push(prisma.matchGame.deleteMany({ where: { matchId: original.id } }));
-      }
-    }
+  // Every played match records when it began. A walkover was never played.
+  let startedAt: Date | null = null;
+  if (status !== "WALKOVER") {
+    const rawStart = String(formData.get("startedAt") ?? "").trim();
+    if (!rawStart) return { error: "Enter when the match started." };
+    startedAt = parseDateTimeLocal(rawStart);
+    if (!startedAt) return { error: "Enter a valid start time." };
   }
 
-  await prisma.$transaction(txOps);
+  await recordMatchResult(match, { status, winnerId, games, startedAt });
 
   revalidateTournament(match.event.tournament.slug);
   return {};
