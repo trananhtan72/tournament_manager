@@ -18,7 +18,9 @@ The user who creates a tournament is its organizer. (v1: one organizer per tourn
 
 ## Core concepts & rules (badminton-specific)
 
-- A **tournament** has a name, venue, dates, registration deadline, and one or more **events**.
+- A **tournament** has a name, venue, dates, registration deadline, and one or more **events**. It can
+  also have an "entries open" date (default: open straight away), a withdrawal deadline (default: the
+  registration deadline; players can't withdraw after it) and a link to a regulations document.
 - Event types: Men's Singles (MS), Women's Singles (WS), Men's Doubles (MD), Women's Doubles (WD), Mixed Doubles (XD).
 - Doubles entries are **pairs**: a player registers and either names a partner (who must confirm) or
   registers as "needs partner" so the organizer can pair them.
@@ -34,7 +36,7 @@ The user who creates a tournament is its organizer. (v1: one organizer per tourn
   to 15; or Custom (1/3/5/7 games, 5–50 points). The win-by-2 rule and cap (target + 9) scale with the
   target. For pools + knockout, the pool stage and the knockout stage each have their own game format.
 - Match result records game-by-game scores, winner, and optional status: completed / walkover / retired.
-
+- Live point-by-point scoring: a organizer can start a game with option: start live game - One person is assigned as the head referee and provided with an interface to enter the match's live scores. Simultaneously, a link is generated to display the scores on a TV screen or a landscape-oriented iPad; the live score display updates automatically whenever the referee enters a new score.
 ## Draw formats (per event, chosen by organizer)
 
 1. **Single elimination** — sizes 4–64; byes auto-assigned to top seeds when entries aren't a power of two.
@@ -51,12 +53,22 @@ Draws are regenerable until the organizer "publishes" the draw; after publishing
 ## Pages
 
 - `/` — list of tournaments (upcoming / ongoing / past)
-- `/t/[slug]` — tournament home: events, dates, venue, registration button
+- `/t/[slug]` — tournament home, split into tabs (each its own page):
+  - **Overview** (`/t/[slug]`): sign-up status (open / not open yet / closed), entries-open date, entry
+    deadline, withdrawal deadline, start and end dates, number of events and entries, the register area
+    (per-event registration), regulations link, organizer name, venue
+  - **Events** (`/t/[slug]/events`): name, draws, entries
+  - **Draws** (`/t/[slug]/draws`): draw, size, type, stage (e.g. Semifinals, Pool stage, Completed)
+  - **Matches** (`/t/[slug]/matches`): every match of the published draws — timed ones grouped by
+    day/court (v1: simple ordered list per day, courts optional), the rest under "Not yet scheduled";
+    times are venue-local wall-clock times (no time-zone conversion)
+  - **Players** (`/t/[slug]/players`): everyone with a confirmed entry, A–Z, with a quick search box
+    (names only — emails are organizer-only)
 - `/t/[slug]/[event]` — bracket or pool tables for that event, clickable matches showing scores
-- `/t/[slug]/schedule` — all matches grouped by day/court (v1: simple ordered list per day, courts optional)
-- `/dashboard` — player: my registrations, my upcoming matches
+- `/dashboard` — player: my registrations, my matches (upcoming with time/court, then results)
 - `/organizer/...` — organizer console: create/edit tournament, manage entries & partners, seed,
-  generate/publish draws, enter scores
+  generate/publish draws, enter scores, `/organizer/[slug]/schedule` to give each match a time and an
+  optional court (must fall on a tournament day; a court needs a time)
 - Auth pages: sign up / sign in (email + password for v1)
 
 ## Score entry flow
@@ -84,3 +96,4 @@ the winner (or standings recompute for round robin). Editable afterward with rec
 4. Score entry + advancement
 5. Round robin and pools+knockout
 6. Public pages polish + schedule view
+7. Live point-by-point scoring
