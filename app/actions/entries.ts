@@ -27,14 +27,27 @@ type EventForNotice = {
   tournament: { slug: string; name: string; organizerId: string };
 };
 
-// Self-registrations wait for the organizer's approval, so tell them there's
-// something to review.
-async function notifyOrganizerOfPendingEntry(event: EventForNotice, who: string): Promise<void> {
+// Tell the organizer a player has registered, with what (if anything) they
+// need to do about it. Skipped when the organizer is the one registering.
+async function notifyOrganizerOfRegistration(
+  event: EventForNotice,
+  actorUserId: string,
+  who: string,
+  detail: string,
+): Promise<void> {
+  if (event.tournament.organizerId === actorUserId) return;
   await notify(
     event.tournament.organizerId,
-    `${who} registered for ${event.name} at ${event.tournament.name} — waiting for your approval.`,
+    `${who} registered for ${event.name} at ${event.tournament.name}${detail}`,
     `/organizer/${event.tournament.slug}/${event.id}`,
   );
+}
+
+const AWAITING_APPROVAL = " — waiting for your approval.";
+
+function revalidateOrganizerViews(event: { id: string; tournament: { slug: string } }) {
+  revalidatePath(`/organizer/${event.tournament.slug}/${event.id}`);
+  revalidatePath(`/organizer/${event.tournament.slug}`);
 }
 
 async function notifyEntryPlayers(
@@ -90,11 +103,10 @@ export async function registerSingles(
   }
 
   const me = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
-  await notifyOrganizerOfPendingEntry(event, me.name);
+  await notifyOrganizerOfRegistration(event, userId, me.name, AWAITING_APPROVAL);
 
   revalidatePath(`/t/${event.tournament.slug}`);
-  revalidatePath(`/organizer/${event.tournament.slug}/${eventId}`);
-  revalidatePath(`/organizer/${event.tournament.slug}`);
+  revalidateOrganizerViews(event);
   revalidatePath("/dashboard");
   return {};
 }
@@ -129,7 +141,16 @@ export async function registerNeedsPartner(
     throw error;
   }
 
+  const me = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
+  await notifyOrganizerOfRegistration(
+    event,
+    userId,
+    me.name,
+    " and needs a partner — you can pair them from the entries page.",
+  );
+
   revalidatePath(`/t/${event.tournament.slug}`);
+  revalidateOrganizerViews(event);
   revalidatePath("/dashboard");
   return {};
 }
@@ -205,8 +226,15 @@ export async function registerWithPartner(
     `${me.name} invited you to be their partner for ${event.name} at ${event.tournament.name}.`,
     "/dashboard",
   );
+  await notifyOrganizerOfRegistration(
+    event,
+    userId,
+    me.name,
+    ` with ${partner.name} — waiting for ${partner.name} to confirm.`,
+  );
 
   revalidatePath(`/t/${event.tournament.slug}`);
+  revalidateOrganizerViews(event);
   revalidatePath("/dashboard");
   return {};
 }
@@ -246,11 +274,10 @@ export async function confirmPartnerInvite(entryId: string): Promise<void> {
     `${playerName(me)} accepted your partner invitation for ${entry.event.name} at ${entry.event.tournament.name}. Your entry now needs the organizer's approval.`,
     `/t/${entry.event.tournament.slug}`,
   );
-  await notifyOrganizerOfPendingEntry(entry.event, entryLabel(entry));
+  await notifyOrganizerOfRegistration(entry.event, userId, entryLabel(entry), AWAITING_APPROVAL);
 
   revalidatePath(`/t/${entry.event.tournament.slug}`);
-  revalidatePath(`/organizer/${entry.event.tournament.slug}/${entry.eventId}`);
-  revalidatePath(`/organizer/${entry.event.tournament.slug}`);
+  revalidateOrganizerViews(entry.event);
   revalidatePath("/dashboard");
 }
 
