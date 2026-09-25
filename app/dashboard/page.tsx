@@ -3,9 +3,13 @@ import Link from "next/link";
 import type { EntryStatus } from "@prisma/client";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { registrationIsOpen } from "@/lib/registrationDeadline";
+import { withdrawalIsOpen } from "@/lib/registrationDeadline";
 import { ActionForm } from "@/components/ActionForm";
 import { playerName } from "@/lib/playerDisplay";
+import { MatchCard } from "@/components/Bracket";
+import { toBracketMatchView } from "@/lib/matchView";
+import { gameFormatForMatch } from "@/lib/tournament/gameFormat";
+import { formatScheduleLabel, knockoutRoundCount, sortSchedule, stageLabel } from "@/lib/tournament/schedule";
 import {
   confirmPartnerInvite,
   declinePartnerInvite,
@@ -33,6 +37,37 @@ function entryStatusText(
   }
 }
 
+type MyMatchRow = {
+  match: {
+    id: string;
+    eventId: string;
+    scheduledAt: Date | null;
+    court: string | null;
+    event: { name: string; tournament: { name: string; slug: string } };
+  };
+  stage: string;
+  view: React.ComponentProps<typeof MatchCard>["match"];
+};
+
+function MyMatchItem({ row, emptyTimeLabel }: { row: MyMatchRow; emptyTimeLabel: string | null }) {
+  const { match, stage, view } = row;
+  const timeLabel = formatScheduleLabel(match) ?? emptyTimeLabel;
+  return (
+    <li className="flex flex-col gap-2 rounded-md border border-slate-200 px-4 py-3 sm:flex-row sm:items-center sm:gap-4 dark:border-slate-700">
+      <div className="flex min-w-0 flex-col gap-0.5 text-sm sm:w-64">
+        <Link href={`/t/${match.event.tournament.slug}/${match.eventId}`} className="font-medium underline">
+          {match.event.name}
+        </Link>
+        <span className="text-slate-600 dark:text-slate-400">
+          {match.event.tournament.name} · {stage}
+        </span>
+        {timeLabel && <span className="text-slate-700 dark:text-slate-300">{timeLabel}</span>}
+      </div>
+      <MatchCard match={view} />
+    </li>
+  );
+}
+
 export default async function DashboardPage() {
   const session = await auth();
   if (!session?.user?.id) {
@@ -52,6 +87,55 @@ export default async function DashboardPage() {
     },
     orderBy: { createdAt: "desc" },
   });
+
+  // Matches in published draws that one of my entries plays in (byes aren't matches).
+  const myMatchRecords = await prisma.match.findMany({
+    where: {
+      isBye: false,
+      event: { drawPublished: true },
+      OR: [
+        { entry1: { players: { some: { userId } } } },
+        { entry2: { players: { some: { userId } } } },
+      ],
+    },
+    include: {
+      pool: true,
+      event: { include: { tournament: true, matches: { select: { poolId: true, round: true } } } },
+      entry1: { include: { players: { include: { user: true } } } },
+      entry2: { include: { players: { include: { user: true } } } },
+      winner: { include: { players: { include: { user: true } } } },
+      games: { orderBy: { gameNumber: "asc" } },
+    },
+  });
+  const myMatches = myMatchRecords.map((match) => ({
+    match,
+    stage: stageLabel(
+      { poolName: match.pool?.name ?? null, round: match.round },
+      { drawFormat: match.event.drawFormat, knockoutRounds: knockoutRoundCount(match.event.matches) },
+    ),
+    view: toBracketMatchView(match, gameFormatForMatch(match.event, match), { showSchedule: false }),
+  }));
+  const upcomingMatches = myMatches.filter((r) => r.match.status === null);
+  // Timed matches first in play order, then the ones still waiting for a slot.
+  const upcomingTimed = sortSchedule(
+    upcomingMatches.flatMap((r) =>
+      r.match.scheduledAt
+        ? [{ ...r, scheduledAt: r.match.scheduledAt, court: r.match.court, eventName: r.match.event.name, round: r.match.round, position: r.match.position }]
+        : [],
+    ),
+  );
+  const upcomingUntimed = upcomingMatches
+    .filter((r) => !r.match.scheduledAt)
+    .sort(
+      (a, b) =>
+        a.match.event.tournament.name.localeCompare(b.match.event.tournament.name) ||
+        a.match.event.name.localeCompare(b.match.event.name) ||
+        a.match.round - b.match.round ||
+        a.match.position - b.match.position,
+    );
+  const playedMatches = myMatches
+    .filter((r) => r.match.status !== null)
+    .sort((a, b) => b.match.updatedAt.getTime() - a.match.updatedAt.getTime());
 
   const pendingInvites = entryPlayers.filter(
     (ep) => ep.role === "PARTNER" && !ep.confirmed,
@@ -123,9 +207,7 @@ export default async function DashboardPage() {
           <ul className="flex flex-col gap-3">
             {myRegistrations.map((ep) => {
               const other = ep.entry.players.find((p) => p.userId !== userId);
-              const registrationOpen = registrationIsOpen(
-                ep.entry.event.tournament.registrationDeadline,
-              );
+              const withdrawalOpen = withdrawalIsOpen(ep.entry.event.tournament);
               return (
                 <li
                   key={ep.id}
@@ -146,7 +228,12 @@ export default async function DashboardPage() {
                   <p className="text-sm text-slate-700 dark:text-slate-300">
                     {entryStatusText(ep.entry.status, ep.role, other ? playerName(other) : undefined)}
                   </p>
-                  {registrationOpen && (
+                  {withdrawalOpen && ep.entry.event.drawPublished && (
+                    <p className="text-sm text-slate-500">
+                      The draw has been published — contact the organizer if you need to withdraw.
+                    </p>
+                  )}
+                  {withdrawalOpen && !ep.entry.event.drawPublished && (
                     <div>
                       <ActionForm
                         action={withdrawEntry.bind(null, ep.entry.id)}
@@ -168,11 +255,39 @@ export default async function DashboardPage() {
         )}
       </section>
 
-      <section className="flex flex-col gap-2 border-t border-slate-200 pt-6 dark:border-slate-800">
+      <section className="flex flex-col gap-4 border-t border-slate-200 pt-6 dark:border-slate-800">
         <h2 className="text-lg font-semibold">My matches</h2>
-        <p className="text-sm text-slate-500">
-          Matches will appear here once draws are generated.
-        </p>
+        {myMatches.length === 0 ? (
+          <p className="text-sm text-slate-500">
+            Your matches will appear here once a draw you&apos;re in is published.
+          </p>
+        ) : (
+          <>
+            {(upcomingTimed.length > 0 || upcomingUntimed.length > 0) && (
+              <div className="flex flex-col gap-2">
+                <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300">Upcoming</h3>
+                <ul className="flex flex-col gap-2">
+                  {upcomingTimed.map((r) => (
+                    <MyMatchItem key={r.match.id} row={r} emptyTimeLabel={null} />
+                  ))}
+                  {upcomingUntimed.map((r) => (
+                    <MyMatchItem key={r.match.id} row={r} emptyTimeLabel="Time to be announced" />
+                  ))}
+                </ul>
+              </div>
+            )}
+            {playedMatches.length > 0 && (
+              <div className="flex flex-col gap-2">
+                <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300">Results</h3>
+                <ul className="flex flex-col gap-2">
+                  {playedMatches.map((r) => (
+                    <MyMatchItem key={r.match.id} row={r} emptyTimeLabel={null} />
+                  ))}
+                </ul>
+              </div>
+            )}
+          </>
+        )}
       </section>
     </div>
   );

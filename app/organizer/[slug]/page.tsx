@@ -40,9 +40,14 @@ export default async function OrganizerTournamentPage({
         <Link href="/organizer" className="text-sm underline">
           ← Your tournaments
         </Link>
-        <Link href={`/t/${tournament.slug}`} className="text-sm underline">
-          View public page
-        </Link>
+        <div className="flex items-center gap-4">
+          <Link href={`/organizer/${tournament.slug}/schedule`} className="text-sm underline">
+            Manage schedule
+          </Link>
+          <Link href={`/t/${tournament.slug}`} className="text-sm underline">
+            View public page
+          </Link>
+        </div>
       </div>
 
       <section className="flex flex-col gap-3">
@@ -55,6 +60,9 @@ export default async function OrganizerTournamentPage({
           startDate={tournament.startDate}
           endDate={tournament.endDate}
           registrationDeadline={tournament.registrationDeadline}
+          registrationOpensAt={tournament.registrationOpensAt}
+          withdrawalDeadline={tournament.withdrawalDeadline}
+          regulationsUrl={tournament.regulationsUrl}
         />
       </section>
 

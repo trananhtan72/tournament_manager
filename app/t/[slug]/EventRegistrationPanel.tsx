@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 import Link from "next/link";
 import type { EntryStatus } from "@prisma/client";
+import type { RegistrationStatus } from "@/lib/registrationDeadline";
 import { usePathname } from "next/navigation";
 import {
   registerSingles,
@@ -91,10 +92,12 @@ function statusText(entry: MyEntryInfo): string {
 
 function MyEntryStatus({
   entry,
-  registrationOpen,
+  withdrawalOpen,
+  drawPublished,
 }: {
   entry: MyEntryInfo;
-  registrationOpen: boolean;
+  withdrawalOpen: boolean;
+  drawPublished: boolean;
 }) {
   const awaitingMyResponse = entry.status === "PENDING_PARTNER" && entry.myRole === "PARTNER";
   const withdrawWithId = withdrawEntry.bind(null, entry.entryId);
@@ -106,7 +109,11 @@ function MyEntryStatus({
         <Link href="/dashboard" className="text-sm underline">
           Respond from your dashboard →
         </Link>
-      ) : registrationOpen ? (
+      ) : withdrawalOpen && drawPublished ? (
+        <p className="text-sm text-slate-500">
+          The draw has been published — contact the organizer if you need to withdraw.
+        </p>
+      ) : withdrawalOpen ? (
         <div>
           <ActionForm
             action={withdrawWithId}
@@ -126,17 +133,39 @@ function MyEntryStatus({
 export function EventRegistrationPanel({
   eventId,
   isDoubles,
-  registrationOpen,
+  registrationStatus,
+  registrationOpensLabel,
+  withdrawalOpen,
+  drawPublished,
   signedIn,
   myEntry,
 }: {
   eventId: string;
   isDoubles: boolean;
-  registrationOpen: boolean;
+  registrationStatus: RegistrationStatus;
+  /** When entries open, formatted — shown while registration hasn't started. */
+  registrationOpensLabel: string | null;
+  withdrawalOpen: boolean;
+  drawPublished: boolean;
   signedIn: boolean;
   myEntry: MyEntryInfo | null;
 }) {
   const pathname = usePathname();
+
+  if (signedIn && myEntry) {
+    return <MyEntryStatus entry={myEntry} withdrawalOpen={withdrawalOpen} drawPublished={drawPublished} />;
+  }
+
+  if (registrationStatus === "not_open") {
+    return (
+      <p className="text-sm text-slate-500">
+        Registration opens{registrationOpensLabel ? ` on ${registrationOpensLabel}` : " soon"}.
+      </p>
+    );
+  }
+  if (registrationStatus === "closed") {
+    return <p className="text-sm text-slate-500">Registration is closed.</p>;
+  }
 
   if (!signedIn) {
     return (
@@ -147,16 +176,6 @@ export function EventRegistrationPanel({
         Sign in to register
       </Link>
     );
-  }
-
-  if (myEntry) {
-    return (
-      <MyEntryStatus entry={myEntry} registrationOpen={registrationOpen} />
-    );
-  }
-
-  if (!registrationOpen) {
-    return <p className="text-sm text-slate-500">Registration is closed.</p>;
   }
 
   return isDoubles ? (

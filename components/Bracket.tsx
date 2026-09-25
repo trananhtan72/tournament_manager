@@ -14,6 +14,8 @@ export type BracketMatchView = {
   games: { entry1Score: number; entry2Score: number }[];
   /** How many game cells to draw per side (the match's best-of-N). */
   gamesPerMatch: number;
+  /** "Tue, Dec 1 · 9:30 AM · Court 2" — shown above the players when set. */
+  scheduleLabel?: string | null;
 };
 
 function entryDisplay(label: string | null, seed: number | null): string | null {
@@ -68,6 +70,11 @@ export function MatchCard({ match }: { match: BracketMatchView }) {
 
   return (
     <div className="flex w-64 flex-col gap-1 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 print:border-slate-300 print:bg-white">
+      {match.scheduleLabel && (
+        <span className="truncate text-xs text-slate-500 dark:text-slate-400 print:text-slate-600">
+          {match.scheduleLabel}
+        </span>
+      )}
       <div className="flex items-center justify-between gap-2">
         <span
           className={`truncate ${isEntry1Winner ? "font-semibold text-slate-900 dark:text-white print:text-slate-900" : "text-slate-600 dark:text-slate-400 print:text-slate-600"}`}
@@ -106,6 +113,8 @@ export function MatchCard({ match }: { match: BracketMatchView }) {
 // of its matches — so no per-round layout math is needed to keep the tree
 // aligned, only a shared H.
 const MATCH_HEIGHT_REM = 4.5;
+// A card with a schedule line above the players is one line taller.
+const SCHEDULED_MATCH_HEIGHT_REM = 5.75;
 const ROUND_GAP_REM = 2.5;
 
 /**
@@ -174,7 +183,8 @@ export function Bracket({ matches }: { matches: BracketMatchView[] }) {
   const totalRounds = matches.reduce((max, m) => Math.max(max, m.round), 0);
   const rounds = Array.from({ length: totalRounds }, (_, i) => i + 1);
   const round1Count = matches.filter((m) => m.round === 1).length;
-  const totalHeightRem = round1Count * MATCH_HEIGHT_REM;
+  const matchHeightRem = matches.some((m) => m.scheduleLabel) ? SCHEDULED_MATCH_HEIGHT_REM : MATCH_HEIGHT_REM;
+  const totalHeightRem = round1Count * matchHeightRem;
 
   return (
     <div className="overflow-x-auto print:overflow-visible">

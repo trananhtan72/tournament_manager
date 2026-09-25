@@ -9,6 +9,22 @@ import { requireUserId } from "@/lib/session";
 
 export type TournamentActionState = { error?: string };
 
+// Blank optional inputs arrive as "" — treat them as "not set".
+const optionalDate = (message: string) =>
+  z.preprocess(
+    (value) => (value === "" || value == null ? null : value),
+    z.coerce.date({ error: message }).nullable(),
+  );
+
+function isHttpUrl(value: string): boolean {
+  try {
+    const { protocol } = new URL(value);
+    return protocol === "http:" || protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
 const tournamentSchema = z
   .object({
     name: z.string().trim().min(1, "Name is required").max(150),
@@ -18,6 +34,16 @@ const tournamentSchema = z
     registrationDeadline: z.coerce.date({
       error: "Enter a valid registration deadline",
     }),
+    registrationOpensAt: optionalDate("Enter a valid date for when entries open"),
+    withdrawalDeadline: optionalDate("Enter a valid withdrawal deadline"),
+    regulationsUrl: z
+      .string()
+      .trim()
+      .max(500, "The regulations link is too long (500 characters max)")
+      .transform((value) => value || null)
+      .refine((value) => value === null || isHttpUrl(value), {
+        error: "The regulations link must start with http:// or https://",
+      }),
   })
   .refine((data) => data.endDate >= data.startDate, {
     error: "End date must be on or after the start date",
@@ -26,7 +52,32 @@ const tournamentSchema = z
   .refine((data) => data.registrationDeadline <= data.startDate, {
     error: "Registration deadline must be on or before the start date",
     path: ["registrationDeadline"],
+  })
+  .refine((data) => !data.registrationOpensAt || data.registrationOpensAt <= data.registrationDeadline, {
+    error: "Entries must open on or before the registration deadline",
+    path: ["registrationOpensAt"],
+  })
+  .refine((data) => !data.withdrawalDeadline || data.withdrawalDeadline >= data.registrationDeadline, {
+    error: "The withdrawal deadline must be on or after the registration deadline",
+    path: ["withdrawalDeadline"],
+  })
+  .refine((data) => !data.withdrawalDeadline || data.withdrawalDeadline <= data.startDate, {
+    error: "The withdrawal deadline must be on or before the start date",
+    path: ["withdrawalDeadline"],
   });
+
+function tournamentFormValues(formData: FormData) {
+  return {
+    name: formData.get("name"),
+    venue: formData.get("venue"),
+    startDate: formData.get("startDate"),
+    endDate: formData.get("endDate"),
+    registrationDeadline: formData.get("registrationDeadline"),
+    registrationOpensAt: formData.get("registrationOpensAt") ?? "",
+    withdrawalDeadline: formData.get("withdrawalDeadline") ?? "",
+    regulationsUrl: formData.get("regulationsUrl") ?? "",
+  };
+}
 
 async function uniqueSlugFor(name: string) {
   const base = slugify(name) || "tournament";
@@ -45,13 +96,7 @@ export async function createTournament(
 ): Promise<TournamentActionState> {
   const userId = await requireUserId();
 
-  const parsed = tournamentSchema.safeParse({
-    name: formData.get("name"),
-    venue: formData.get("venue"),
-    startDate: formData.get("startDate"),
-    endDate: formData.get("endDate"),
-    registrationDeadline: formData.get("registrationDeadline"),
-  });
+  const parsed = tournamentSchema.safeParse(tournamentFormValues(formData));
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
   }
@@ -80,13 +125,7 @@ export async function updateTournament(
     return { error: "Tournament not found." };
   }
 
-  const parsed = tournamentSchema.safeParse({
-    name: formData.get("name"),
-    venue: formData.get("venue"),
-    startDate: formData.get("startDate"),
-    endDate: formData.get("endDate"),
-    registrationDeadline: formData.get("registrationDeadline"),
-  });
+  const parsed = tournamentSchema.safeParse(tournamentFormValues(formData));
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
   }
@@ -98,6 +137,7 @@ export async function updateTournament(
 
   revalidatePath("/organizer");
   revalidatePath(`/organizer/${tournament.slug}`);
+  revalidatePath(`/t/${tournament.slug}`);
   return {};
 }
 

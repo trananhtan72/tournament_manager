@@ -3,7 +3,7 @@ import Link from "next/link";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { drawFormatLabels, isDoublesCategory } from "@/lib/eventLabels";
-import { playerName as getPlayerName, entryLabel, entryDisplayName } from "@/lib/playerDisplay";
+import { playerName as getPlayerName, entryDisplayName } from "@/lib/playerDisplay";
 import { roundName } from "@/lib/tournament/singleElimination";
 import { gameFormatForMatch, describeEventGameFormats, type GameFormat } from "@/lib/tournament/gameFormat";
 import { computeRoundRobinStandings } from "@/lib/tournament/roundRobin";
@@ -13,6 +13,7 @@ import { RemoveEntryButton } from "@/components/RemoveEntryButton";
 import { PendingEntryActions } from "@/components/PendingEntryActions";
 import { EntryPlayersWithEmail } from "@/components/EntryPlayersWithEmail";
 import { Bracket, type BracketMatchView } from "@/components/Bracket";
+import { toBracketMatchView, type EntryWithPlayers, type MatchWithRelations } from "@/lib/matchView";
 import { StandingsTable, type StandingsRowView } from "@/components/StandingsTable";
 import { publishDraw, unpublishDraw } from "@/app/actions/draws";
 import { PairEntriesForm } from "@/app/organizer/[slug]/[eventId]/PairEntriesForm";
@@ -24,43 +25,6 @@ import { SwapPoolEntriesForm } from "@/app/organizer/[slug]/[eventId]/SwapPoolEn
 import { MovePoolEntryForm } from "@/app/organizer/[slug]/[eventId]/MovePoolEntryForm";
 import { MatchResultForm } from "@/app/organizer/[slug]/[eventId]/MatchResultForm";
 import { PrintDrawButton } from "@/components/PrintDrawButton";
-
-type MatchWithRelations = {
-  id: string;
-  poolId: string | null;
-  round: number;
-  position: number;
-  isBye: boolean;
-  status: "COMPLETED" | "WALKOVER" | "RETIRED" | null;
-  winnerId: string | null;
-  entry1: EntryWithPlayers | null;
-  entry2: EntryWithPlayers | null;
-  winner: EntryWithPlayers | null;
-  games: { entry1Score: number; entry2Score: number }[];
-};
-
-type EntryWithPlayers = {
-  id: string;
-  seed: number | null;
-  players: { guestName: string | null; user: { name: string; email: string } | null }[];
-};
-
-function toBracketMatchView(m: MatchWithRelations, format: GameFormat): BracketMatchView {
-  return {
-    id: m.id,
-    round: m.round,
-    position: m.position,
-    entry1Label: m.entry1 ? entryLabel(m.entry1) : null,
-    entry1Seed: m.entry1?.seed ?? null,
-    entry2Label: m.entry2 ? entryLabel(m.entry2) : null,
-    entry2Seed: m.entry2?.seed ?? null,
-    winnerLabel: m.winner ? entryLabel(m.winner) : null,
-    isBye: m.isBye,
-    status: m.status,
-    games: m.games,
-    gamesPerMatch: format.gamesPerMatch,
-  };
-}
 
 function toScorable(m: MatchWithRelations, format: GameFormat) {
   return {

@@ -1,49 +1,14 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import type { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
 import { drawFormatLabels } from "@/lib/eventLabels";
-import { entryLabel, entryDisplayName } from "@/lib/playerDisplay";
+import { entryDisplayName } from "@/lib/playerDisplay";
 import { computeRoundRobinStandings } from "@/lib/tournament/roundRobin";
 import { gameFormatForMatch, describeEventGameFormats, type GameFormat } from "@/lib/tournament/gameFormat";
 import { Bracket, MatchCard, type BracketMatchView } from "@/components/Bracket";
+import { toBracketMatchView, type EntryWithPlayers, type MatchWithRelations } from "@/lib/matchView";
 import { StandingsTable, type StandingsRowView } from "@/components/StandingsTable";
-
-type EntryWithPlayers = {
-  id: string;
-  seed: number | null;
-  players: { guestName: string | null; user: { name: string; email: string } | null }[];
-};
-
-type MatchWithRelations = {
-  id: string;
-  poolId: string | null;
-  round: number;
-  position: number;
-  isBye: boolean;
-  status: "COMPLETED" | "WALKOVER" | "RETIRED" | null;
-  winnerId: string | null;
-  entry1: EntryWithPlayers | null;
-  entry2: EntryWithPlayers | null;
-  winner: EntryWithPlayers | null;
-  games: { entry1Score: number; entry2Score: number }[];
-};
-
-function toBracketMatchView(m: MatchWithRelations, format: GameFormat): BracketMatchView {
-  return {
-    id: m.id,
-    round: m.round,
-    position: m.position,
-    entry1Label: m.entry1 ? entryLabel(m.entry1) : null,
-    entry1Seed: m.entry1?.seed ?? null,
-    entry2Label: m.entry2 ? entryLabel(m.entry2) : null,
-    entry2Seed: m.entry2?.seed ?? null,
-    winnerLabel: m.winner ? entryLabel(m.winner) : null,
-    isBye: m.isBye,
-    status: m.status,
-    games: m.games,
-    gamesPerMatch: format.gamesPerMatch,
-  };
-}
 
 function standingsFor(entries: EntryWithPlayers[], matches: MatchWithRelations[]): StandingsRowView[] {
   const standings = computeRoundRobinStandings(
@@ -73,27 +38,21 @@ function MatchList({
       <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300">{title}</h3>
       <div className="flex flex-wrap gap-3">
         {matches.map((m) => (
-          <MatchCard
-            key={m.id}
-            match={{
-              id: m.id,
-              round: m.round,
-              position: m.position,
-              entry1Label: m.entry1 ? entryDisplayName(m.entry1) : null,
-              entry1Seed: null,
-              entry2Label: m.entry2 ? entryDisplayName(m.entry2) : null,
-              entry2Seed: null,
-              winnerLabel: m.winner ? entryDisplayName(m.winner) : null,
-              isBye: m.isBye,
-              status: m.status,
-              games: m.games,
-              gamesPerMatch: formatFor(m).gamesPerMatch,
-            }}
-          />
+          <MatchCard key={m.id} match={toBracketMatchView(m, formatFor(m))} />
         ))}
       </div>
     </div>
   );
+}
+
+export async function generateMetadata({ params }: PageProps<"/t/[slug]/[eventId]">): Promise<Metadata> {
+  const { slug, eventId } = await params;
+  const event = await prisma.event.findUnique({
+    where: { id: eventId },
+    select: { name: true, tournament: { select: { name: true, slug: true } } },
+  });
+  if (!event || event.tournament.slug !== slug) return { title: "Event not found" };
+  return { title: `${event.name} — ${event.tournament.name}` };
 }
 
 export default async function PublicEventPage({
@@ -153,9 +112,12 @@ export default async function PublicEventPage({
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <Link href={`/t/${slug}`} className="text-sm underline">
           ← {event.tournament.name}
+        </Link>
+        <Link href={`/t/${slug}/matches`} className="text-sm underline">
+          All matches →
         </Link>
       </div>
 

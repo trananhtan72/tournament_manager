@@ -6,7 +6,8 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireUserId } from "@/lib/session";
-import { registrationIsOpen } from "@/lib/registrationDeadline";
+import { registrationStatus, withdrawalIsOpen } from "@/lib/registrationDeadline";
+import { formatDate } from "@/lib/formatDate";
 import { isDoublesCategory } from "@/lib/eventLabels";
 import { notify } from "@/lib/notify";
 import { playerName, entryLabel } from "@/lib/playerDisplay";
@@ -46,6 +47,18 @@ async function notifyEntryPlayers(
   );
 }
 
+/** Why registration can't happen right now, or null if it can. */
+function registrationBlockedReason(tournament: {
+  registrationOpensAt: Date | null;
+  registrationDeadline: Date;
+}): string | null {
+  const status = registrationStatus(tournament);
+  if (status === "open") return null;
+  return status === "not_open"
+    ? `Registration hasn't opened yet — entries open on ${formatDate(tournament.registrationOpensAt!)}.`
+    : "Registration is closed for this tournament.";
+}
+
 export async function registerSingles(
   eventId: string,
   _prevState: EntryActionState,
@@ -56,9 +69,8 @@ export async function registerSingles(
   const event = await getEventWithTournament(eventId);
   if (!event) return { error: "Event not found." };
   if (isDoublesCategory(event.category)) return { error: "This event requires a partner." };
-  if (!registrationIsOpen(event.tournament.registrationDeadline)) {
-    return { error: "Registration is closed for this tournament." };
-  }
+  const blocked = registrationBlockedReason(event.tournament);
+  if (blocked) return { error: blocked };
 
   try {
     await prisma.entry.create({
@@ -97,9 +109,8 @@ export async function registerNeedsPartner(
   const event = await getEventWithTournament(eventId);
   if (!event) return { error: "Event not found." };
   if (!isDoublesCategory(event.category)) return { error: "This event doesn't take a partner." };
-  if (!registrationIsOpen(event.tournament.registrationDeadline)) {
-    return { error: "Registration is closed for this tournament." };
-  }
+  const blocked = registrationBlockedReason(event.tournament);
+  if (blocked) return { error: blocked };
 
   try {
     await prisma.entry.create({
@@ -137,9 +148,8 @@ export async function registerWithPartner(
   const event = await getEventWithTournament(eventId);
   if (!event) return { error: "Event not found." };
   if (!isDoublesCategory(event.category)) return { error: "This event doesn't take a partner." };
-  if (!registrationIsOpen(event.tournament.registrationDeadline)) {
-    return { error: "Registration is closed for this tournament." };
-  }
+  const blocked = registrationBlockedReason(event.tournament);
+  if (blocked) return { error: blocked };
 
   const parsed = partnerEmailSchema.safeParse({
     partnerEmail: formData.get("partnerEmail"),
@@ -279,8 +289,8 @@ export async function withdrawEntry(entryId: string): Promise<void> {
   const me = entry.players.find((p) => p.userId === userId);
   if (!me) redirect("/dashboard");
 
-  if (!registrationIsOpen(entry.event.tournament.registrationDeadline)) {
-    throw new Error("Registration is closed; ask the organizer to withdraw this entry.");
+  if (!withdrawalIsOpen(entry.event.tournament)) {
+    throw new Error("The withdrawal deadline has passed; ask the organizer to withdraw this entry.");
   }
   if (entry.event.drawPublished) {
     throw new Error("The draw has been published; contact the organizer to withdraw.");

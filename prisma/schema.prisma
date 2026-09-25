@@ -29,43 +29,50 @@ enum DrawFormat {
 }
 
 model Tournament {
-  id                   String   @id @default(cuid())
-  slug                 String   @unique
+  id                   String    @id @default(cuid())
+  slug                 String    @unique
   name                 String
   venue                String
   startDate            DateTime
   endDate              DateTime
   registrationDeadline DateTime
+  // Optional. Entries open at the start of this day (null = open straight away).
+  registrationOpensAt  DateTime?
+  // Optional. Players can withdraw through the end of this day (null = the
+  // registration deadline).
+  withdrawalDeadline   DateTime?
+  // Optional link to the regulations document (there's no file storage).
+  regulationsUrl       String?
   organizerId          String
-  organizer            User     @relation(fields: [organizerId], references: [id])
+  organizer            User      @relation(fields: [organizerId], references: [id])
   events               Event[]
-  createdAt            DateTime @default(now())
-  updatedAt            DateTime @updatedAt
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
 
   @@index([organizerId])
 }
 
 model Event {
-  id             String        @id @default(cuid())
-  tournamentId   String
-  tournament     Tournament    @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
-  name           String
-  category       EventCategory
-  drawFormat     DrawFormat    @default(SINGLE_ELIMINATION)
-  drawPublished  Boolean       @default(false)
+  id                    String        @id @default(cuid())
+  tournamentId          String
+  tournament            Tournament    @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  name                  String
+  category              EventCategory
+  drawFormat            DrawFormat    @default(SINGLE_ELIMINATION)
+  drawPublished         Boolean       @default(false)
   // Game rules: best of `gamesPerMatch` games, each to `pointsPerGame` (win by
   // 2, capped 9 above the target — BWF: 21 -> 30). Defaults are the BWF
   // standard. For pools+knockout these are the POOL-stage rules, and the
   // knockout* pair sets the knockout stage separately (null = same as pools).
-  gamesPerMatch         Int  @default(3)
-  pointsPerGame         Int  @default(21)
+  gamesPerMatch         Int           @default(3)
+  pointsPerGame         Int           @default(21)
   knockoutGamesPerMatch Int?
   knockoutPointsPerGame Int?
-  entries        Entry[]
-  matches        Match[]
-  pools          Pool[]
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
+  entries               Entry[]
+  matches               Match[]
+  pools                 Pool[]
+  createdAt             DateTime      @default(now())
+  updatedAt             DateTime      @updatedAt
 
   @@unique([tournamentId, name])
 }
@@ -85,19 +92,19 @@ enum EntryPlayerRole {
 }
 
 model Entry {
-  id                  String        @id @default(cuid())
-  eventId             String
-  event               Event         @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  status              EntryStatus
-  seed                Int?
-  poolId              String?
-  pool                Pool?         @relation(fields: [poolId], references: [id])
-  players             EntryPlayer[]
-  matchesAsEntry1     Match[]       @relation("MatchEntry1")
-  matchesAsEntry2     Match[]       @relation("MatchEntry2")
-  matchesWon          Match[]       @relation("MatchWinner")
-  createdAt           DateTime      @default(now())
-  updatedAt           DateTime      @updatedAt
+  id              String        @id @default(cuid())
+  eventId         String
+  event           Event         @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  status          EntryStatus
+  seed            Int?
+  poolId          String?
+  pool            Pool?         @relation(fields: [poolId], references: [id])
+  players         EntryPlayer[]
+  matchesAsEntry1 Match[]       @relation("MatchEntry1")
+  matchesAsEntry2 Match[]       @relation("MatchEntry2")
+  matchesWon      Match[]       @relation("MatchWinner")
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
 
   @@unique([eventId, seed])
 }
@@ -149,24 +156,29 @@ enum MatchStatus {
 // feeder match. Editing an already-recorded result cascades: any later match
 // whose entries depended on the old winner has its own result cleared too.
 model Match {
-  id        String       @id @default(cuid())
-  eventId   String
-  event     Event        @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  poolId    String?
-  pool      Pool?        @relation(fields: [poolId], references: [id], onDelete: Cascade)
-  round     Int
-  position  Int
-  entry1Id  String?
-  entry1    Entry?       @relation("MatchEntry1", fields: [entry1Id], references: [id])
-  entry2Id  String?
-  entry2    Entry?       @relation("MatchEntry2", fields: [entry2Id], references: [id])
-  winnerId  String?
-  winner    Entry?       @relation("MatchWinner", fields: [winnerId], references: [id])
-  isBye     Boolean      @default(false)
-  status    MatchStatus?
-  games     MatchGame[]
-  createdAt DateTime     @default(now())
-  updatedAt DateTime     @updatedAt
+  id          String       @id @default(cuid())
+  eventId     String
+  event       Event        @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  poolId      String?
+  pool        Pool?        @relation(fields: [poolId], references: [id], onDelete: Cascade)
+  round       Int
+  position    Int
+  entry1Id    String?
+  entry1      Entry?       @relation("MatchEntry1", fields: [entry1Id], references: [id])
+  entry2Id    String?
+  entry2      Entry?       @relation("MatchEntry2", fields: [entry2Id], references: [id])
+  winnerId    String?
+  winner      Entry?       @relation("MatchWinner", fields: [winnerId], references: [id])
+  isBye       Boolean      @default(false)
+  status      MatchStatus?
+  // Optional schedule slot. scheduledAt is a "floating" wall-clock time: the
+  // UTC fields hold the venue's local time (like the tournament dates, which
+  // are stored as UTC midnight), so it's always read and shown in UTC.
+  scheduledAt DateTime?
+  court       String?
+  games       MatchGame[]
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
 
   @@unique([eventId, round, position])
 }

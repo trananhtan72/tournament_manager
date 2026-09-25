@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Tournament Manager",
+  title: { default: "Tournament Manager", template: "%s · Tournament Manager" },
   description: "Badminton tournament management",
 };
 

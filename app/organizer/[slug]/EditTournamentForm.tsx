@@ -9,8 +9,8 @@ import { FormError } from "@/components/FormError";
 
 const initialState: TournamentActionState = {};
 
-function toDateInputValue(date: Date) {
-  return date.toISOString().slice(0, 10);
+function toDateInputValue(date: Date | null) {
+  return date ? date.toISOString().slice(0, 10) : "";
 }
 
 export function EditTournamentForm({
@@ -20,6 +20,9 @@ export function EditTournamentForm({
   startDate,
   endDate,
   registrationDeadline,
+  registrationOpensAt,
+  withdrawalDeadline,
+  regulationsUrl: initialRegulationsUrl,
 }: {
   tournamentId: string;
   name: string;
@@ -27,6 +30,9 @@ export function EditTournamentForm({
   startDate: Date;
   endDate: Date;
   registrationDeadline: Date;
+  registrationOpensAt: Date | null;
+  withdrawalDeadline: Date | null;
+  regulationsUrl: string | null;
 }) {
   const updateWithId = updateTournament.bind(null, tournamentId);
   const [state, formAction] = useActionState(updateWithId, initialState);
@@ -37,6 +43,9 @@ export function EditTournamentForm({
   const [registrationDeadlineValue, setRegistrationDeadlineValue] = useState(
     toDateInputValue(registrationDeadline),
   );
+  const [registrationOpensAtValue, setRegistrationOpensAtValue] = useState(toDateInputValue(registrationOpensAt));
+  const [withdrawalDeadlineValue, setWithdrawalDeadlineValue] = useState(toDateInputValue(withdrawalDeadline));
+  const [regulationsUrl, setRegulationsUrl] = useState(initialRegulationsUrl ?? "");
 
   return (
     <form action={formAction} className="flex flex-col gap-4">
@@ -82,6 +91,35 @@ export function EditTournamentForm({
           onChange={(e) => setRegistrationDeadlineValue(e.target.value)}
         />
       </div>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <TextField
+          label="Entries open (optional)"
+          name="registrationOpensAt"
+          type="date"
+          value={registrationOpensAtValue}
+          onChange={(e) => setRegistrationOpensAtValue(e.target.value)}
+        />
+        <TextField
+          label="Withdrawal deadline (optional)"
+          name="withdrawalDeadline"
+          type="date"
+          value={withdrawalDeadlineValue}
+          onChange={(e) => setWithdrawalDeadlineValue(e.target.value)}
+        />
+      </div>
+      <p className="-mt-2 text-xs text-slate-500">
+        Leave &quot;Entries open&quot; blank to accept entries straight away, and the withdrawal
+        deadline blank to let players withdraw until the registration deadline.
+      </p>
+      <TextField
+        label="Regulations link (optional)"
+        name="regulationsUrl"
+        type="url"
+        placeholder="https://…"
+        maxLength={500}
+        value={regulationsUrl}
+        onChange={(e) => setRegulationsUrl(e.target.value)}
+      />
       <FormError message={state.error} />
       <div>
         <SubmitButton>Save changes</SubmitButton>
