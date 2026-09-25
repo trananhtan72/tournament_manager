@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { Fragment, useActionState } from "react";
 import Link from "next/link";
 import { updateEvent, deleteEvent } from "@/app/actions/events";
 import type { EventActionState } from "@/app/actions/events";
@@ -45,17 +45,18 @@ export function EventRow({
   return (
     <li className="flex flex-col gap-3 rounded-md border border-slate-200 px-4 py-3 dark:border-slate-700">
       <form action={formAction} className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
-        <EventNameFields key={remountKey} initialName={name} initialCategory={category} />
-        <EventFormatFields
-          key={remountKey}
-          initialDrawFormat={drawFormat}
-          initialGameFormat={{ gamesPerMatch, pointsPerGame }}
-          initialKnockoutGameFormat={
-            knockoutGamesPerMatch !== null && knockoutPointsPerGame !== null
-              ? { gamesPerMatch: knockoutGamesPerMatch, pointsPerGame: knockoutPointsPerGame }
-              : null
-          }
-        />
+        <Fragment key={remountKey}>
+          <EventNameFields initialName={name} initialCategory={category} />
+          <EventFormatFields
+            initialDrawFormat={drawFormat}
+            initialGameFormat={{ gamesPerMatch, pointsPerGame }}
+            initialKnockoutGameFormat={
+              knockoutGamesPerMatch !== null && knockoutPointsPerGame !== null
+                ? { gamesPerMatch: knockoutGamesPerMatch, pointsPerGame: knockoutPointsPerGame }
+                : null
+            }
+          />
+        </Fragment>
         <div className="flex gap-2">
           <SubmitButton variant="secondary">Update</SubmitButton>
         </div>
