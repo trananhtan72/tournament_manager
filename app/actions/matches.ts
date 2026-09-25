@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidateTournament } from "@/lib/revalidate";
 import { prisma } from "@/lib/prisma";
 import { requireUserId } from "@/lib/session";
 import { validateCompletedMatch, type GameScore } from "@/lib/tournament/scoring";
@@ -120,7 +120,6 @@ export async function submitMatchResult(
 
   await prisma.$transaction(txOps);
 
-  revalidatePath(`/organizer/${match.event.tournament.slug}/${match.eventId}`);
-  revalidatePath(`/t/${match.event.tournament.slug}/${match.eventId}`);
+  revalidateTournament(match.event.tournament.slug);
   return {};
 }

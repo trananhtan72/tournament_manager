@@ -2,6 +2,7 @@
 
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
+import { revalidateTournament } from "@/lib/revalidate";
 import { prisma } from "@/lib/prisma";
 import { requireUserId } from "@/lib/session";
 import { formatDate } from "@/lib/formatDate";
@@ -70,10 +71,7 @@ export async function setMatchSchedule(
   });
 
   const { slug } = match.event.tournament;
-  revalidatePath(`/organizer/${slug}/schedule`);
-  revalidatePath(`/t/${slug}/matches`);
-  revalidatePath(`/t/${slug}/${match.eventId}`);
-  revalidatePath(`/organizer/${slug}/${match.eventId}`);
+  revalidateTournament(slug);
   revalidatePath("/dashboard");
   return { saved: true };
 }

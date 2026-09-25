@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { formatDate } from "@/lib/formatDate";
-import { TournamentTabs } from "@/components/TournamentTabs";
+import { TabNav } from "@/components/TabNav";
 
 export default async function TournamentTabsLayout({
   children,
@@ -23,7 +23,16 @@ export default async function TournamentTabsLayout({
           {tournament.venue} · {formatDate(tournament.startDate)} – {formatDate(tournament.endDate)}
         </p>
       </div>
-      <TournamentTabs slug={slug} />
+      <TabNav
+        ariaLabel="Tournament sections"
+        tabs={[
+          { label: "Overview", href: `/t/${slug}`, exact: true },
+          { label: "Events", href: `/t/${slug}/events` },
+          { label: "Draws", href: `/t/${slug}/draws` },
+          { label: "Matches", href: `/t/${slug}/matches` },
+          { label: "Players", href: `/t/${slug}/players` },
+        ]}
+      />
       {children}
     </div>
   );

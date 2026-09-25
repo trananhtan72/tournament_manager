@@ -1,11 +1,18 @@
 "use server";
 
 import { z } from "zod";
+import { Prisma } from "@prisma/client";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import { revalidateTournament } from "@/lib/revalidate";
 import { prisma } from "@/lib/prisma";
 import { slugify } from "@/lib/slugify";
 import { requireUserId } from "@/lib/session";
+import {
+  MAX_REGULATIONS_JSON_LENGTH,
+  isRegulationsEmpty,
+  sanitizeRegulations,
+} from "@/lib/regulations";
 
 export type TournamentActionState = { error?: string };
 
@@ -15,15 +22,6 @@ const optionalDate = (message: string) =>
     (value) => (value === "" || value == null ? null : value),
     z.coerce.date({ error: message }).nullable(),
   );
-
-function isHttpUrl(value: string): boolean {
-  try {
-    const { protocol } = new URL(value);
-    return protocol === "http:" || protocol === "https:";
-  } catch {
-    return false;
-  }
-}
 
 const tournamentSchema = z
   .object({
@@ -36,14 +34,6 @@ const tournamentSchema = z
     }),
     registrationOpensAt: optionalDate("Enter a valid date for when entries open"),
     withdrawalDeadline: optionalDate("Enter a valid withdrawal deadline"),
-    regulationsUrl: z
-      .string()
-      .trim()
-      .max(500, "The regulations link is too long (500 characters max)")
-      .transform((value) => value || null)
-      .refine((value) => value === null || isHttpUrl(value), {
-        error: "The regulations link must start with http:// or https://",
-      }),
   })
   .refine((data) => data.endDate >= data.startDate, {
     error: "End date must be on or after the start date",
@@ -75,7 +65,6 @@ function tournamentFormValues(formData: FormData) {
     registrationDeadline: formData.get("registrationDeadline"),
     registrationOpensAt: formData.get("registrationOpensAt") ?? "",
     withdrawalDeadline: formData.get("withdrawalDeadline") ?? "",
-    regulationsUrl: formData.get("regulationsUrl") ?? "",
   };
 }
 
@@ -136,8 +125,7 @@ export async function updateTournament(
   });
 
   revalidatePath("/organizer");
-  revalidatePath(`/organizer/${tournament.slug}`);
-  revalidatePath(`/t/${tournament.slug}`);
+  revalidateTournament(tournament.slug);
   return {};
 }
 
@@ -155,4 +143,43 @@ export async function deleteTournament(tournamentId: string): Promise<void> {
 
   revalidatePath("/organizer");
   redirect("/organizer");
+}
+
+export type RegulationsActionState = { error?: string; saved?: boolean };
+
+/** Saves the rich-text regulations document; an empty document clears it. */
+export async function updateRegulations(
+  tournamentId: string,
+  _prevState: RegulationsActionState,
+  formData: FormData,
+): Promise<RegulationsActionState> {
+  const userId = await requireUserId();
+
+  const tournament = await prisma.tournament.findUnique({ where: { id: tournamentId } });
+  if (!tournament || tournament.organizerId !== userId) {
+    return { error: "Tournament not found." };
+  }
+
+  const raw = formData.get("regulations");
+  if (typeof raw !== "string" || raw.length > MAX_REGULATIONS_JSON_LENGTH) {
+    return { error: "The regulations document is too large." };
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return { error: "The regulations couldn't be read. Please try again." };
+  }
+  const doc = sanitizeRegulations(parsed);
+  if (!doc) {
+    return { error: "The regulations couldn't be read. Please try again." };
+  }
+
+  await prisma.tournament.update({
+    where: { id: tournamentId },
+    data: { regulations: isRegulationsEmpty(doc) ? Prisma.DbNull : (doc as unknown as Prisma.InputJsonValue) },
+  });
+
+  revalidateTournament(tournament.slug);
+  return { saved: true };
 }

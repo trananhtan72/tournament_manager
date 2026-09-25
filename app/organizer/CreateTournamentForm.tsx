@@ -18,7 +18,6 @@ export function CreateTournamentForm() {
   const [registrationDeadline, setRegistrationDeadline] = useState("");
   const [registrationOpensAt, setRegistrationOpensAt] = useState("");
   const [withdrawalDeadline, setWithdrawalDeadline] = useState("");
-  const [regulationsUrl, setRegulationsUrl] = useState("");
 
   return (
     <form action={formAction} className="flex flex-col gap-4">
@@ -84,15 +83,6 @@ export function CreateTournamentForm() {
         Leave &quot;Entries open&quot; blank to accept entries straight away, and the withdrawal
         deadline blank to let players withdraw until the registration deadline.
       </p>
-      <TextField
-        label="Regulations link (optional)"
-        name="regulationsUrl"
-        type="url"
-        placeholder="https://…"
-        maxLength={500}
-        value={regulationsUrl}
-        onChange={(e) => setRegulationsUrl(e.target.value)}
-      />
       <FormError message={state.error} />
       <div>
         <SubmitButton>Create tournament</SubmitButton>

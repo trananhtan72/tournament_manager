@@ -22,7 +22,6 @@ export function EditTournamentForm({
   registrationDeadline,
   registrationOpensAt,
   withdrawalDeadline,
-  regulationsUrl: initialRegulationsUrl,
 }: {
   tournamentId: string;
   name: string;
@@ -32,7 +31,6 @@ export function EditTournamentForm({
   registrationDeadline: Date;
   registrationOpensAt: Date | null;
   withdrawalDeadline: Date | null;
-  regulationsUrl: string | null;
 }) {
   const updateWithId = updateTournament.bind(null, tournamentId);
   const [state, formAction] = useActionState(updateWithId, initialState);
@@ -45,7 +43,6 @@ export function EditTournamentForm({
   );
   const [registrationOpensAtValue, setRegistrationOpensAtValue] = useState(toDateInputValue(registrationOpensAt));
   const [withdrawalDeadlineValue, setWithdrawalDeadlineValue] = useState(toDateInputValue(withdrawalDeadline));
-  const [regulationsUrl, setRegulationsUrl] = useState(initialRegulationsUrl ?? "");
 
   return (
     <form action={formAction} className="flex flex-col gap-4">
@@ -111,15 +108,6 @@ export function EditTournamentForm({
         Leave &quot;Entries open&quot; blank to accept entries straight away, and the withdrawal
         deadline blank to let players withdraw until the registration deadline.
       </p>
-      <TextField
-        label="Regulations link (optional)"
-        name="regulationsUrl"
-        type="url"
-        placeholder="https://…"
-        maxLength={500}
-        value={regulationsUrl}
-        onChange={(e) => setRegulationsUrl(e.target.value)}
-      />
       <FormError message={state.error} />
       <div>
         <SubmitButton>Save changes</SubmitButton>

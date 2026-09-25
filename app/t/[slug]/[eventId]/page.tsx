@@ -3,25 +3,10 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
 import { drawFormatLabels } from "@/lib/eventLabels";
-import { entryDisplayName } from "@/lib/playerDisplay";
-import { computeRoundRobinStandings } from "@/lib/tournament/roundRobin";
 import { gameFormatForMatch, describeEventGameFormats, type GameFormat } from "@/lib/tournament/gameFormat";
 import { Bracket, MatchCard, type BracketMatchView } from "@/components/Bracket";
-import { toBracketMatchView, type EntryWithPlayers, type MatchWithRelations } from "@/lib/matchView";
-import { StandingsTable, type StandingsRowView } from "@/components/StandingsTable";
-
-function standingsFor(entries: EntryWithPlayers[], matches: MatchWithRelations[]): StandingsRowView[] {
-  const standings = computeRoundRobinStandings(
-    entries.map((e) => e.id),
-    matches
-      .filter((m): m is MatchWithRelations & { entry1: EntryWithPlayers; entry2: EntryWithPlayers } =>
-        m.entry1 !== null && m.entry2 !== null,
-      )
-      .map((m) => ({ entry1Id: m.entry1.id, entry2Id: m.entry2.id, winnerId: m.winnerId, games: m.games })),
-  );
-  const byId = new Map(entries.map((e) => [e.id, e]));
-  return standings.map((s) => ({ ...s, label: entryDisplayName(byId.get(s.entryId)!) }));
-}
+import { standingsFor, toBracketMatchView, type MatchWithRelations } from "@/lib/matchView";
+import { StandingsTable } from "@/components/StandingsTable";
 
 function MatchList({
   title,

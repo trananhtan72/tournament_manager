@@ -1,57 +1,59 @@
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import Link from "next/link";
-import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { requireOrganizerId } from "@/lib/organizerAccess";
+import { regulationsForDisplay } from "@/lib/regulations";
 import { EditTournamentForm } from "@/app/organizer/[slug]/EditTournamentForm";
-import { AddEventForm } from "@/app/organizer/[slug]/AddEventForm";
-import { EventRow } from "@/app/organizer/[slug]/EventRow";
+import { RegulationsEditorDialog } from "@/app/organizer/[slug]/RegulationsEditorDialog";
 import { ActionForm } from "@/components/ActionForm";
+import { RegulationsContent } from "@/components/RegulationsContent";
+import { RegulationsDialog } from "@/components/RegulationsDialog";
 import { deleteTournament } from "@/app/actions/tournaments";
 
-export default async function OrganizerTournamentPage({
+function Stat({ label, value, children }: { label: string; value: number; children?: React.ReactNode }) {
+  return (
+    <div className="flex flex-col gap-1 rounded-md border border-slate-200 px-4 py-3 dark:border-slate-700">
+      <span className="text-xs font-medium uppercase tracking-wide text-slate-500">{label}</span>
+      <span className="text-2xl font-semibold tabular-nums">{value}</span>
+      {children}
+    </div>
+  );
+}
+
+export default async function OrganizerOverviewPage({
   params,
 }: PageProps<"/organizer/[slug]">) {
   const { slug } = await params;
+  const userId = await requireOrganizerId();
 
-  const session = await auth();
-  if (!session?.user?.id) {
-    redirect("/signin");
-  }
-
-  const tournament = await prisma.tournament.findUnique({
-    where: { slug },
-    include: {
-      events: {
-        include: { entries: { select: { status: true } } },
-        orderBy: { name: "asc" },
-      },
-    },
+  const tournament = await prisma.tournament.findFirst({
+    where: { slug, organizerId: userId },
+    include: { events: { include: { entries: { select: { status: true } } } } },
   });
+  if (!tournament) notFound();
 
-  if (!tournament || tournament.organizerId !== session.user.id) {
-    notFound();
-  }
-
+  const entries = tournament.events.flatMap((event) => event.entries);
+  const confirmedCount = entries.filter((e) => e.status === "CONFIRMED").length;
+  const pendingCount = entries.filter((e) => e.status === "PENDING_APPROVAL").length;
+  const regulations = regulationsForDisplay(tournament.regulations);
   const deleteWithId = deleteTournament.bind(null, tournament.id);
 
   return (
     <div className="flex flex-col gap-8">
-      <div className="flex items-center justify-between">
-        <Link href="/organizer" className="text-sm underline">
-          ← Your tournaments
-        </Link>
-        <div className="flex items-center gap-4">
-          <Link href={`/organizer/${tournament.slug}/schedule`} className="text-sm underline">
-            Manage schedule
-          </Link>
-          <Link href={`/t/${tournament.slug}`} className="text-sm underline">
-            View public page
-          </Link>
-        </div>
-      </div>
+      <section aria-label="Totals" className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <Stat label="Events" value={tournament.events.length} />
+        <Stat label="Confirmed entries" value={confirmedCount} />
+        <Stat label="Pending approval" value={pendingCount}>
+          {pendingCount > 0 && (
+            <Link href={`/organizer/${slug}/entries`} className="text-sm underline">
+              Review them →
+            </Link>
+          )}
+        </Stat>
+      </section>
 
       <section className="flex flex-col gap-3">
-        <h1 className="text-xl font-semibold">Tournament details</h1>
+        <h2 className="text-lg font-semibold">Tournament details</h2>
         <EditTournamentForm
           key={tournament.updatedAt.getTime()}
           tournamentId={tournament.id}
@@ -62,50 +64,28 @@ export default async function OrganizerTournamentPage({
           registrationDeadline={tournament.registrationDeadline}
           registrationOpensAt={tournament.registrationOpensAt}
           withdrawalDeadline={tournament.withdrawalDeadline}
-          regulationsUrl={tournament.regulationsUrl}
         />
       </section>
 
       <section className="flex flex-col gap-3 border-t border-slate-200 pt-6 dark:border-slate-800">
-        <h2 className="text-lg font-semibold">Events</h2>
-        {tournament.events.length === 0 ? (
-          <p className="text-sm text-slate-500">No events yet.</p>
-        ) : (
-          <ul className="flex flex-col gap-3">
-            {tournament.events.map((event) => (
-              <EventRow
-                key={[
-                  event.id,
-                  event.name,
-                  event.category,
-                  event.drawFormat,
-                  event.gamesPerMatch,
-                  event.pointsPerGame,
-                  event.knockoutGamesPerMatch,
-                  event.knockoutPointsPerGame,
-                ].join(":")}
-                tournamentSlug={tournament.slug}
-                eventId={event.id}
-                name={event.name}
-                category={event.category}
-                drawFormat={event.drawFormat}
-                gamesPerMatch={event.gamesPerMatch}
-                pointsPerGame={event.pointsPerGame}
-                knockoutGamesPerMatch={event.knockoutGamesPerMatch}
-                knockoutPointsPerGame={event.knockoutPointsPerGame}
-                entryCount={event.entries.length}
-                pendingApprovalCount={event.entries.filter((e) => e.status === "PENDING_APPROVAL").length}
-              />
-            ))}
-          </ul>
-        )}
-        <AddEventForm tournamentId={tournament.id} />
+        <h2 className="text-lg font-semibold">Regulations</h2>
+        <p className="text-sm text-slate-600 dark:text-slate-400">
+          {regulations
+            ? "Players can read these in a popup on the tournament page."
+            : "Not written yet. Once you add regulations, players can read them in a popup on the tournament page."}
+        </p>
+        <div className="flex flex-wrap items-center gap-4">
+          <RegulationsEditorDialog tournamentId={tournament.id} initialDoc={regulations} />
+          {regulations && (
+            <RegulationsDialog title={`Regulations — ${tournament.name}`} triggerLabel="Preview as players see it">
+              <RegulationsContent doc={regulations} />
+            </RegulationsDialog>
+          )}
+        </div>
       </section>
 
       <section className="flex flex-col gap-3 border-t border-slate-200 pt-6 dark:border-slate-800">
-        <h2 className="text-lg font-semibold text-red-600 dark:text-red-400">
-          Danger zone
-        </h2>
+        <h2 className="text-lg font-semibold text-red-600 dark:text-red-400">Danger zone</h2>
         <ActionForm
           action={deleteWithId}
           variant="danger"

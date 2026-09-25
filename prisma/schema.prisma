@@ -41,8 +41,9 @@ model Tournament {
   // Optional. Players can withdraw through the end of this day (null = the
   // registration deadline).
   withdrawalDeadline   DateTime?
-  // Optional link to the regulations document (there's no file storage).
-  regulationsUrl       String?
+  // Optional rich-text regulations document: a ProseMirror doc restricted to
+  // the nodes/marks in lib/regulations.ts. Players read it in a popup.
+  regulations          Json?
   organizerId          String
   organizer            User      @relation(fields: [organizerId], references: [id])
   events               Event[]

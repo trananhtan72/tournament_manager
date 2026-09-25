@@ -67,7 +67,7 @@ export function EventRow({
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Link
-            href={`/organizer/${tournamentSlug}/${eventId}`}
+            href={`/organizer/${tournamentSlug}/entries/${eventId}`}
             className="text-sm underline"
           >
             Manage entries →

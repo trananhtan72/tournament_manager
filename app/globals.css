@@ -35,12 +35,12 @@ body {
     visibility: hidden;
   }
 
-  #printable-draw,
-  #printable-draw * {
+  [data-printing="true"],
+  [data-printing="true"] * {
     visibility: visible;
   }
 
-  #printable-draw {
+  [data-printing="true"] {
     position: absolute;
     inset: 0;
     width: 100%;
@@ -49,7 +49,7 @@ body {
   /* Most browsers strip background colors when printing unless the person
      enables "Background graphics" in the print dialog. Force ours through so
      the bracket doesn't depend on that setting. */
-  #printable-draw * {
+  [data-printing="true"] * {
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }

@@ -7,6 +7,9 @@ import { isDoublesCategory } from "@/lib/eventLabels";
 import { formatDate } from "@/lib/formatDate";
 import { effectiveWithdrawalDeadline, registrationStatus, withdrawalIsOpen } from "@/lib/registrationDeadline";
 import { playerName, playerEmail } from "@/lib/playerDisplay";
+import { regulationsForDisplay } from "@/lib/regulations";
+import { RegulationsContent } from "@/components/RegulationsContent";
+import { RegulationsDialog } from "@/components/RegulationsDialog";
 import {
   EventRegistrationPanel,
   type MyEntryInfo,
@@ -91,6 +94,7 @@ export default async function OverviewTab({ params }: PageProps<"/t/[slug]">) {
   const status = registrationStatus(tournament);
   const badge = statusBadge[status];
   const withdrawalOpen = withdrawalIsOpen(tournament);
+  const regulations = regulationsForDisplay(tournament.regulations);
   const totalEntries = tournament.events.reduce((sum, event) => sum + event._count.entries, 0);
 
   return (
@@ -167,15 +171,10 @@ export default async function OverviewTab({ params }: PageProps<"/t/[slug]">) {
         </h2>
         <dl className="grid grid-cols-1 gap-x-6 gap-y-4 rounded-md border border-slate-200 p-4 sm:grid-cols-2 dark:border-slate-700">
           <InfoRow label="Regulations">
-            {tournament.regulationsUrl ? (
-              <a
-                href={tournament.regulationsUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="underline"
-              >
-                View regulations document ↗
-              </a>
+            {regulations ? (
+              <RegulationsDialog title={`Regulations — ${tournament.name}`} triggerLabel="Read the regulations">
+                <RegulationsContent doc={regulations} />
+              </RegulationsDialog>
             ) : (
               <span className="text-slate-500">Not provided</span>
             )}

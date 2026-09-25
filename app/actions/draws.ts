@@ -2,7 +2,7 @@
 
 import { z } from "zod";
 import { Prisma } from "@prisma/client";
-import { revalidatePath } from "next/cache";
+import { revalidateTournament } from "@/lib/revalidate";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireUserId } from "@/lib/session";
@@ -136,8 +136,7 @@ export async function generateDraw(
     });
   }
 
-  revalidatePath(`/organizer/${event.tournament.slug}/${eventId}`);
-  revalidatePath(`/t/${event.tournament.slug}/${eventId}`);
+  revalidateTournament(event.tournament.slug);
   return {};
 }
 
@@ -254,8 +253,7 @@ export async function generateKnockoutStage(
     );
   }
 
-  revalidatePath(`/organizer/${event.tournament.slug}/${eventId}`);
-  revalidatePath(`/t/${event.tournament.slug}/${eventId}`);
+  revalidateTournament(event.tournament.slug);
   return {};
 }
 
@@ -273,7 +271,7 @@ export async function publishDraw(eventId: string): Promise<void> {
       entry2: { include: { players: true } },
     },
   });
-  if (allMatches.length === 0) redirect(`/organizer/${event.tournament.slug}/${eventId}`);
+  if (allMatches.length === 0) redirect(`/organizer/${event.tournament.slug}/draws`);
 
   await prisma.event.update({ where: { id: eventId }, data: { drawPublished: true } });
 
@@ -298,8 +296,7 @@ export async function publishDraw(eventId: string): Promise<void> {
     ),
   );
 
-  revalidatePath(`/organizer/${event.tournament.slug}/${eventId}`);
-  revalidatePath(`/t/${event.tournament.slug}/${eventId}`);
+  revalidateTournament(event.tournament.slug);
 }
 
 export async function unpublishDraw(eventId: string): Promise<void> {
@@ -309,8 +306,7 @@ export async function unpublishDraw(eventId: string): Promise<void> {
 
   await prisma.event.update({ where: { id: eventId }, data: { drawPublished: false } });
 
-  revalidatePath(`/organizer/${event.tournament.slug}/${eventId}`);
-  revalidatePath(`/t/${event.tournament.slug}/${eventId}`);
+  revalidateTournament(event.tournament.slug);
 }
 
 type Round1Match = { id: string; position: number; entry1Id: string | null; entry2Id: string | null };
@@ -413,8 +409,7 @@ export async function swapBracketEntries(
     ]);
   }
 
-  revalidatePath(`/organizer/${event.tournament.slug}/${eventId}`);
-  revalidatePath(`/t/${event.tournament.slug}/${eventId}`);
+  revalidateTournament(event.tournament.slug);
   return {};
 }
 
@@ -505,8 +500,7 @@ export async function swapPoolEntries(
     }),
   ]);
 
-  revalidatePath(`/organizer/${event.tournament.slug}/${eventId}`);
-  revalidatePath(`/t/${event.tournament.slug}/${eventId}`);
+  revalidateTournament(event.tournament.slug);
   return {};
 }
 
@@ -585,8 +579,7 @@ export async function movePoolEntry(
     }),
   ]);
 
-  revalidatePath(`/organizer/${event.tournament.slug}/${eventId}`);
-  revalidatePath(`/t/${event.tournament.slug}/${eventId}`);
+  revalidateTournament(event.tournament.slug);
   return {};
 }
 
@@ -628,6 +621,6 @@ export async function setEntrySeed(
     throw error;
   }
 
-  revalidatePath(`/organizer/${entry.event.tournament.slug}/${entry.eventId}`);
+  revalidateTournament(entry.event.tournament.slug);
   return {};
 }

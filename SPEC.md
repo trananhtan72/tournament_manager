@@ -20,7 +20,8 @@ The user who creates a tournament is its organizer. (v1: one organizer per tourn
 
 - A **tournament** has a name, venue, dates, registration deadline, and one or more **events**. It can
   also have an "entries open" date (default: open straight away), a withdrawal deadline (default: the
-  registration deadline; players can't withdraw after it) and a link to a regulations document.
+  registration deadline; players can't withdraw after it) and a rich-text regulations document, written
+  by the organizer in a popup editor and read by players in a popup.
 - Event types: Men's Singles (MS), Women's Singles (WS), Men's Doubles (MD), Women's Doubles (WD), Mixed Doubles (XD).
 - Doubles entries are **pairs**: a player registers and either names a partner (who must confirm) or
   registers as "needs partner" so the organizer can pair them.
@@ -58,7 +59,7 @@ Draws are regenerable until the organizer "publishes" the draw; after publishing
 - `/t/[slug]` — tournament home, split into tabs (each its own page):
   - **Overview** (`/t/[slug]`): sign-up status (open / not open yet / closed), entries-open date, entry
     deadline, withdrawal deadline, start and end dates, number of events and entries, the register area
-    (per-event registration), regulations link, organizer name, venue
+    (per-event registration), regulations (opens in a popup), organizer name, venue
   - **Events** (`/t/[slug]/events`): name, draws, entries
   - **Draws** (`/t/[slug]/draws`): draw, size, type, stage (e.g. Semifinals, Pool stage, Completed)
   - **Matches** (`/t/[slug]/matches`): every match of the published draws — timed ones grouped by
@@ -68,9 +69,16 @@ Draws are regenerable until the organizer "publishes" the draw; after publishing
     (names only — emails are organizer-only)
 - `/t/[slug]/[event]` — bracket or pool tables for that event, clickable matches showing scores
 - `/dashboard` — player: my registrations, my matches (upcoming with time/court, then results)
-- `/organizer/...` — organizer console: create/edit tournament, manage entries & partners, seed,
-  generate/publish draws, enter scores, `/organizer/[slug]/schedule` to give each match a time and an
-  optional court (must fall on a tournament day; a court needs a time)
+- `/organizer/[slug]/...` — organizer console for one tournament, as tabs (each its own page):
+  - **Overview**: totals (events, confirmed entries, pending approval), tournament details, the
+    regulations (edited in a rich-text popup), delete tournament
+  - **Events**: create/edit/delete events (name, draw format, game format)
+  - **Manage entries**: one sub-tab per event — pending approval, confirmed entries (seeds), partner
+    pairing, quick add; badges show what's waiting for approval
+  - **Match center**: upcoming matches on the left half (enter results here), played matches on the
+    right half (edit results); a link to the schedule page, where each match gets a time and an
+    optional court (must fall on a tournament day; a court needs a time)
+  - **Draws**: every event's draw — generate, publish, swap/move entries, knockout stage, print
 - Auth pages: sign up / sign in (email + password for v1)
 
 ## Score entry flow

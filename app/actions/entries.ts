@@ -4,6 +4,7 @@ import { z } from "zod";
 import { Prisma } from "@prisma/client";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import { revalidateTournament } from "@/lib/revalidate";
 import { prisma } from "@/lib/prisma";
 import { requireUserId } from "@/lib/session";
 import { registrationStatus, withdrawalIsOpen } from "@/lib/registrationDeadline";
@@ -39,15 +40,14 @@ async function notifyOrganizerOfRegistration(
   await notify(
     event.tournament.organizerId,
     `${who} registered for ${event.name} at ${event.tournament.name}${detail}`,
-    `/organizer/${event.tournament.slug}/${event.id}`,
+    `/organizer/${event.tournament.slug}/entries/${event.id}`,
   );
 }
 
 const AWAITING_APPROVAL = " — waiting for your approval.";
 
 function revalidateOrganizerViews(event: { id: string; tournament: { slug: string } }) {
-  revalidatePath(`/organizer/${event.tournament.slug}/${event.id}`);
-  revalidatePath(`/organizer/${event.tournament.slug}`);
+  revalidateTournament(event.tournament.slug);
 }
 
 async function notifyEntryPlayers(
@@ -105,7 +105,7 @@ export async function registerSingles(
   const me = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
   await notifyOrganizerOfRegistration(event, userId, me.name, AWAITING_APPROVAL);
 
-  revalidatePath(`/t/${event.tournament.slug}`);
+  revalidateTournament(event.tournament.slug);
   revalidateOrganizerViews(event);
   revalidatePath("/dashboard");
   return {};
@@ -149,7 +149,7 @@ export async function registerNeedsPartner(
     " and needs a partner — you can pair them from the entries page.",
   );
 
-  revalidatePath(`/t/${event.tournament.slug}`);
+  revalidateTournament(event.tournament.slug);
   revalidateOrganizerViews(event);
   revalidatePath("/dashboard");
   return {};
@@ -233,7 +233,7 @@ export async function registerWithPartner(
     ` with ${partner.name} — waiting for ${partner.name} to confirm.`,
   );
 
-  revalidatePath(`/t/${event.tournament.slug}`);
+  revalidateTournament(event.tournament.slug);
   revalidateOrganizerViews(event);
   revalidatePath("/dashboard");
   return {};
@@ -276,7 +276,7 @@ export async function confirmPartnerInvite(entryId: string): Promise<void> {
   );
   await notifyOrganizerOfRegistration(entry.event, userId, entryLabel(entry), AWAITING_APPROVAL);
 
-  revalidatePath(`/t/${entry.event.tournament.slug}`);
+  revalidateTournament(entry.event.tournament.slug);
   revalidateOrganizerViews(entry.event);
   revalidatePath("/dashboard");
 }
@@ -343,7 +343,7 @@ export async function withdrawEntry(entryId: string): Promise<void> {
     );
   }
 
-  revalidatePath(`/t/${entry.event.tournament.slug}`);
+  revalidateTournament(entry.event.tournament.slug);
   revalidatePath("/dashboard");
 }
 
@@ -382,8 +382,7 @@ export async function removeEntryAsOrganizer(
     `/t/${entry.event.tournament.slug}`,
   );
 
-  revalidatePath(`/organizer/${entry.event.tournament.slug}/${entry.eventId}`);
-  revalidatePath(`/t/${entry.event.tournament.slug}`);
+  revalidateTournament(entry.event.tournament.slug);
   return {};
 }
 
@@ -403,9 +402,7 @@ async function findPendingEntryForOrganizer(entryId: string, userId: string) {
 
 function revalidateAfterReview(entry: { eventId: string; event: { tournament: { slug: string } } }) {
   const { slug } = entry.event.tournament;
-  revalidatePath(`/organizer/${slug}/${entry.eventId}`);
-  revalidatePath(`/organizer/${slug}`);
-  revalidatePath(`/t/${slug}`);
+  revalidateTournament(slug);
   revalidatePath("/dashboard");
 }
 
@@ -531,7 +528,7 @@ export async function pairEntries(
   }
   await Promise.all(notifications);
 
-  revalidatePath(`/organizer/${event.tournament.slug}/${eventId}`);
+  revalidateTournament(event.tournament.slug);
   return {};
 }
 
@@ -646,7 +643,6 @@ export async function quickAddEntry(
     throw error;
   }
 
-  revalidatePath(`/organizer/${event.tournament.slug}/${eventId}`);
-  revalidatePath(`/t/${event.tournament.slug}`);
+  revalidateTournament(event.tournament.slug);
   return {};
 }

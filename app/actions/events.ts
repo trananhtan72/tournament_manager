@@ -3,7 +3,7 @@
 import { z } from "zod";
 import { Prisma } from "@prisma/client";
 import { redirect } from "next/navigation";
-import { revalidatePath } from "next/cache";
+import { revalidateTournament } from "@/lib/revalidate";
 import { prisma } from "@/lib/prisma";
 import { requireUserId } from "@/lib/session";
 import {
@@ -133,7 +133,7 @@ export async function createEvent(
     throw error;
   }
 
-  revalidatePath(`/organizer/${tournament.slug}`);
+  revalidateTournament(tournament.slug);
   return {};
 }
 
@@ -223,9 +223,7 @@ export async function updateEvent(
     throw error;
   }
 
-  revalidatePath(`/organizer/${event.tournament.slug}`);
-  revalidatePath(`/organizer/${event.tournament.slug}/${eventId}`);
-  revalidatePath(`/t/${event.tournament.slug}/${eventId}`);
+  revalidateTournament(event.tournament.slug);
   return {};
 }
 
@@ -242,6 +240,6 @@ export async function deleteEvent(eventId: string): Promise<void> {
 
   await prisma.event.delete({ where: { id: eventId } });
 
-  revalidatePath(`/organizer/${event.tournament.slug}`);
-  redirect(`/organizer/${event.tournament.slug}`);
+  revalidateTournament(event.tournament.slug);
+  redirect(`/organizer/${event.tournament.slug}/events`);
 }

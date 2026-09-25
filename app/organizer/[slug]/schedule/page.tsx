@@ -73,8 +73,8 @@ export default async function OrganizerSchedulePage({
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <Link href={`/organizer/${slug}`} className="text-sm underline">
-          ← {tournament.name}
+        <Link href={`/organizer/${slug}/matches`} className="text-sm underline">
+          ← Match center
         </Link>
         <Link href={`/t/${slug}/matches`} className="text-sm underline">
           View public matches
