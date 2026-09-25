@@ -2,12 +2,17 @@
   "name": "tournament-manager",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": ">=22.0.0"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "vitest run"
+    "test": "vitest run",
+    "postinstall": "prisma generate",
+    "vercel-build": "prisma migrate deploy && next build"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.3",
