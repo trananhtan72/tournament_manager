@@ -23,6 +23,8 @@ sign up, register for events, and referee, but the "Create a tournament" form on
 administrator has approved the account (or it's the administrator's own). The tournament-manager
 administrator is a fixed account (`tea@gmail.com`); an account with that email is always an administrator.
 Granting/revoking access notifies the account. Revoking access doesn't touch tournaments already created.
+The "Organizer console" link itself is likewise hidden from the top bar for an account with neither
+organizer access nor a tournament to manage.
 
 ## Core concepts & rules (badminton-specific)
 
@@ -92,6 +94,10 @@ Draws are regenerable until the organizer "publishes" the draw; after publishing
   and the touch-friendly scoring screen for each (same live scorer as the organizer's). A "Referee"
   link appears in the menu for anyone on a referee list.
 - `/dashboard` — player: my registrations, my matches (upcoming with time/court, then results)
+- `/account` — my account: name, email, member since, and which of Player/Referee/Organizer/
+  Administrator apply to this account. Reached from an account icon in the top bar (every signed-in
+  page has one).
+- `/admin` — administrator only (404 for anyone else): grant or revoke organizer access by email
 - `/organizer/[slug]/...` — organizer console for one tournament, as tabs (each its own page):
   - **Overview**: totals (events, confirmed entries, pending approval), tournament details, the
     regulations (edited in a rich-text popup), delete tournament

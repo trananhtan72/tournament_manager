@@ -2,16 +2,17 @@ import Link from "next/link";
 import Image from "next/image";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { SignOutButton } from "@/components/SignOutButton";
+import { canCreateTournaments } from "@/lib/roles";
 import { NotificationBell } from "@/components/NotificationBell";
 import { AuthLinks } from "@/components/AuthLinks";
+import { UserIcon } from "@/components/UserIcon";
 
 const RECENT_NOTIFICATIONS_LIMIT = 10;
 
 export async function NavBar() {
   const session = await auth();
 
-  const [recentNotifications, unreadCount, refereeRoles, me] = session?.user?.id
+  const [recentNotifications, unreadCount, refereeRoles, me, ownedTournaments] = session?.user?.id
     ? await Promise.all([
         prisma.notification.findMany({
           where: { userId: session.user.id },
@@ -23,8 +24,12 @@ export async function NavBar() {
         }),
         prisma.tournamentReferee.count({ where: { userId: session.user.id } }),
         prisma.user.findUnique({ where: { id: session.user.id }, select: { role: true } }),
+        prisma.tournament.count({ where: { organizerId: session.user.id } }),
       ])
-    : [[], 0, 0, null];
+    : [[], 0, 0, null, 0];
+  // Shown even without organizer access if they already have tournaments to
+  // manage (e.g. access was revoked after they created one).
+  const showOrganizerConsole = canCreateTournaments(me?.role ?? "USER") || ownedTournaments > 0;
 
   return (
     <header className="border-b border-slate-200 dark:border-slate-800">
@@ -59,18 +64,24 @@ export async function NavBar() {
                   Referee
                 </Link>
               )}
-              <Link href="/organizer" className="hover:underline">
-                Organizer console
-              </Link>
+              {showOrganizerConsole && (
+                <Link href="/organizer" className="hover:underline">
+                  Organizer console
+                </Link>
+              )}
               {me?.role === "ADMIN" && (
                 <Link href="/admin" className="hover:underline">
                   Admin
                 </Link>
               )}
-              <span className="hidden text-slate-500 sm:inline">
-                {session.user.email}
-              </span>
-              <SignOutButton />
+              <Link
+                href="/account"
+                aria-label={`My account (${session.user.email}) — sign out from there`}
+                title={session.user.email ?? "My account"}
+                className="inline-flex items-center justify-center rounded-full p-1.5 text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white"
+              >
+                <UserIcon className="h-5 w-5" />
+              </Link>
               <NotificationBell notifications={recentNotifications} unreadCount={unreadCount} />
             </>
           ) : (
