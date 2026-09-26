@@ -11,11 +11,19 @@ import { MatchRefereeForm } from "@/app/organizer/[slug]/referees/MatchRefereeFo
 import { gameFormatForMatch } from "@/lib/tournament/gameFormat";
 import { formatScheduleLabel, knockoutRoundCount, sortSchedule, stageLabel } from "@/lib/tournament/schedule";
 import { MatchResultForm } from "@/app/organizer/[slug]/matches/MatchResultForm";
+import { EventFilter } from "@/app/organizer/[slug]/matches/EventFilter";
+
+// Shared by the "Live match score" link and the "Enter manually" summary
+// below, so the two read as one pair of equal-weight options.
+const scoreOptionClass =
+  "inline-flex items-center justify-center rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800";
 
 export default async function MatchCenterPage({
   params,
+  searchParams,
 }: PageProps<"/organizer/[slug]/matches">) {
   const { slug } = await params;
+  const { event: rawEventFilter } = await searchParams;
   const userId = await requireOrganizerId();
 
   const tournament = await prisma.tournament.findFirst({
@@ -42,36 +50,44 @@ export default async function MatchCenterPage({
 
   // Results can only be entered once an event's draw is published.
   const draftDraws = tournament.events.filter((e) => !e.drawPublished && e.matches.length > 0).length;
-  const items = tournament.events
-    .filter((event) => event.drawPublished)
-    .flatMap((event) => {
-      const knockoutRounds = knockoutRoundCount(event.matches);
-      const poolNames = new Map(event.pools.map((p) => [p.id, p.name]));
-      return event.matches
-        .filter((m) => !m.isBye)
-        .map((match) => ({
-          match,
-          eventName: event.name,
-          round: match.round,
-          position: match.position,
-          format: gameFormatForMatch(event, match),
-          stage: stageLabel(
-            { poolName: match.poolId ? (poolNames.get(match.poolId) ?? null) : null, round: match.round },
-            { drawFormat: event.drawFormat, knockoutRounds },
-          ),
-        }));
-    });
+  const publishedEvents = tournament.events.filter((event) => event.drawPublished);
+  const items = publishedEvents.flatMap((event) => {
+    const knockoutRounds = knockoutRoundCount(event.matches);
+    const poolNames = new Map(event.pools.map((p) => [p.id, p.name]));
+    return event.matches
+      .filter((m) => !m.isBye)
+      .map((match) => ({
+        match,
+        eventId: event.id,
+        eventName: event.name,
+        round: match.round,
+        position: match.position,
+        format: gameFormatForMatch(event, match),
+        stage: stageLabel(
+          { poolName: match.poolId ? (poolNames.get(match.poolId) ?? null) : null, round: match.round },
+          { drawFormat: event.drawFormat, knockoutRounds },
+        ),
+      }));
+  });
   type Item = (typeof items)[number];
+
+  // A tournament with several events can pile up a lot of matches here; an
+  // unrecognized or missing ?event= just falls back to "All" rather than
+  // erroring or showing an empty page.
+  const eventChoices = publishedEvents.map((e) => ({ id: e.id, name: e.name }));
+  const selectedEventId =
+    typeof rawEventFilter === "string" && eventChoices.some((e) => e.id === rawEventFilter) ? rawEventFilter : null;
+  const filteredItems = selectedEventId ? items.filter((i) => i.eventId === selectedEventId) : items;
 
   const refereeChoices = tournament.referees
     .map((r) => ({ id: r.id, name: r.user.name }))
     .sort((a, b) => a.name.localeCompare(b.name, "en", { sensitivity: "base" }));
   const refereeName = (id: string | null) => refereeChoices.find((r) => r.id === id)?.name ?? null;
 
-  const formatById = new Map(items.map((i) => [i.match.id, i.format]));
-  const liveStates = await loadLiveStates(items.map((i) => i.match), (m) => formatById.get(m.id)!);
+  const formatById = new Map(filteredItems.map((i) => [i.match.id, i.format]));
+  const liveStates = await loadLiveStates(filteredItems.map((i) => i.match), (m) => formatById.get(m.id)!);
 
-  const upcoming = items.filter((i) => i.match.status === null);
+  const upcoming = filteredItems.filter((i) => i.match.status === null);
   // Matches being scored right now come first, then the rest in play order.
   const upcomingLive = upcoming.filter((i) => isLiveMatch(i.match));
   const notLive = upcoming.filter((i) => !isLiveMatch(i.match));
@@ -86,7 +102,7 @@ export default async function MatchCenterPage({
         a.round - b.round ||
         a.position - b.position,
     );
-  const played = items
+  const played = filteredItems
     .filter((i) => i.match.status !== null)
     .sort((a, b) => b.match.updatedAt.getTime() - a.match.updatedAt.getTime());
 
@@ -141,19 +157,32 @@ export default async function MatchCenterPage({
             )}
           </div>
         ) : ready ? (
-          <>
-            {match.status === null && (
-              <div>
-                <Link href={liveHref} className="text-sm font-medium underline">
-                  Score this match live →
-                </Link>
-              </div>
-            )}
+          match.status === null ? (
+            // Not started yet: two equal options instead of the full score-entry
+            // form taking up space by default — it only appears once "Enter
+            // manually" is opened.
+            <div className="flex flex-wrap gap-2">
+              <Link href={liveHref} className={scoreOptionClass}>
+                Live match score
+              </Link>
+              <details className="[&_summary]:list-none">
+                <summary className={`cursor-pointer ${scoreOptionClass} [&::-webkit-details-marker]:hidden`}>
+                  Enter manually
+                </summary>
+                <div className="pt-2">
+                  <MatchResultForm
+                    key={`${match.id}:${match.status}:${match.winnerId}`}
+                    {...toScorable(match, format)}
+                  />
+                </div>
+              </details>
+            </div>
+          ) : (
             <MatchResultForm
               key={`${match.id}:${match.status}:${match.winnerId}`}
               {...toScorable(match, format)}
             />
-          </>
+          )
         ) : (
           <div className="flex flex-wrap items-center gap-3">
             <MatchCard match={toBracketMatchView(match, format, { showSchedule: false })} />
@@ -166,7 +195,7 @@ export default async function MatchCenterPage({
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-center justify-between gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-slate-600 dark:text-slate-400">
           Enter results as matches finish. Set times and courts on the{" "}
           <Link href={`/organizer/${slug}/schedule`} className="underline">
@@ -174,6 +203,7 @@ export default async function MatchCenterPage({
           </Link>
           .
         </p>
+        {eventChoices.length > 1 && <EventFilter events={eventChoices} />}
       </div>
 
       <details className="rounded-md border border-slate-200 px-4 py-2 text-sm dark:border-slate-700">
@@ -214,7 +244,11 @@ export default async function MatchCenterPage({
           </h2>
           {upcoming.length === 0 ? (
             <p className="text-sm text-slate-500">
-              {items.length === 0 ? "No published draws yet." : "No matches left to play."}
+              {items.length === 0
+                ? "No published draws yet."
+                : selectedEventId
+                  ? "No matches left to play in this event."
+                  : "No matches left to play."}
             </p>
           ) : (
             <>
@@ -256,7 +290,9 @@ export default async function MatchCenterPage({
             Played matches ({played.length})
           </h2>
           {played.length === 0 ? (
-            <p className="text-sm text-slate-500">No matches have been played yet.</p>
+            <p className="text-sm text-slate-500">
+              {selectedEventId ? "No matches played yet in this event." : "No matches have been played yet."}
+            </p>
           ) : (
             <ul className="flex flex-col gap-4">
               {played.map((item) => (
