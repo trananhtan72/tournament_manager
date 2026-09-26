@@ -8,14 +8,21 @@ Public visitors can view brackets, schedules, and results without logging in.
 
 ## Roles
 
-| Role      | Can do                                                                 |
-|-----------|------------------------------------------------------------------------|
-| Public    | View tournaments, brackets, schedules, results (read-only, no login)   |
-| Player    | Sign up, register/withdraw for events before the deadline, view own matches |
-| Referee   | Enter scores for the matches the organizer has assigned to them, from a phone or tablet |
-| Organizer | Everything: create tournaments/events, manage entries, seed, generate draws, assign referees, enter scores, edit results |
+| Role          | Can do                                                                 |
+|---------------|------------------------------------------------------------------------|
+| Public        | View tournaments, brackets, schedules, results (read-only, no login)   |
+| Player        | Sign up, register/withdraw for events before the deadline, view own matches |
+| Referee       | Enter scores for the matches the organizer has assigned to them, from a phone or tablet |
+| Organizer     | Once approved: create tournaments/events, manage entries, seed, generate draws, assign referees, enter scores, edit results |
+| Administrator | Grants or revokes an account's ability to create tournaments, from an Admin page (`/admin`) |
 
 The user who creates a tournament is its organizer. (v1: one organizer per tournament.)
+
+**Creating a tournament requires organizer access, granted by the administrator.** Every account can
+sign up, register for events, and referee, but the "Create a tournament" form only appears once an
+administrator has approved the account (or it's the administrator's own). The tournament-manager
+administrator is a fixed account (`tea@gmail.com`); an account with that email is always an administrator.
+Granting/revoking access notifies the account. Revoking access doesn't touch tournaments already created.
 
 ## Core concepts & rules (badminton-specific)
 

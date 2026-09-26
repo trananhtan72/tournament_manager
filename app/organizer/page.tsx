@@ -4,6 +4,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { CreateTournamentForm } from "@/app/organizer/CreateTournamentForm";
 import { formatDate } from "@/lib/formatDate";
+import { canCreateTournaments } from "@/lib/roles";
 
 export default async function OrganizerPage() {
   const session = await auth();
@@ -12,11 +13,15 @@ export default async function OrganizerPage() {
   }
   const userId = session.user.id;
 
-  const tournaments = await prisma.tournament.findMany({
-    where: { organizerId: userId },
-    orderBy: { createdAt: "desc" },
-    include: { _count: { select: { events: true } } },
-  });
+  const [tournaments, user] = await Promise.all([
+    prisma.tournament.findMany({
+      where: { organizerId: userId },
+      orderBy: { createdAt: "desc" },
+      include: { _count: { select: { events: true } } },
+    }),
+    prisma.user.findUnique({ where: { id: userId }, select: { role: true } }),
+  ]);
+  const canCreate = canCreateTournaments(user?.role ?? "USER");
 
   return (
     <div className="flex flex-col gap-8">
@@ -48,7 +53,13 @@ export default async function OrganizerPage() {
 
       <section className="flex flex-col gap-3 border-t border-slate-200 pt-6 dark:border-slate-800">
         <h2 className="text-lg font-semibold">Create a tournament</h2>
-        <CreateTournamentForm />
+        {canCreate ? (
+          <CreateTournamentForm />
+        ) : (
+          <p className="text-sm text-slate-500">
+            Only approved organizers can create tournaments. Ask the tournament-manager administrator for access.
+          </p>
+        )}
       </section>
     </div>
   );

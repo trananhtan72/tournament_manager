@@ -25,7 +25,10 @@ export type Board = {
 };
 
 const small = "[font-size:min(3vh,2.2vw)]";
-const numeral = "[font-size:min(18vh,11vw)]";
+// Names and scores are what an audience reads from across the court, so they
+// get most of the available row height — bigger than the header/footer text.
+const nameSize = "[font-size:min(12vh,7.4vw)]";
+const numeral = "[font-size:min(24vh,15vw)]";
 
 export function CourtScoreboard({
   board,
@@ -83,7 +86,7 @@ export function CourtScoreboard({
               data-testid={`court-name-${row.side}`}
             >
               <h2
-                className={`truncate font-semibold leading-tight [font-size:min(9vh,5.6vw)] ${row.isWinner ? "text-amber-300" : ""}`}
+                className={`truncate font-semibold leading-tight ${nameSize} ${row.isWinner ? "text-amber-300" : ""}`}
               >
                 {row.name}
               </h2>

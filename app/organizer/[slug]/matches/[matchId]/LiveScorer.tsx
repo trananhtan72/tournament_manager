@@ -232,10 +232,10 @@ export function LiveScorer({
                 : "border-slate-300 bg-white hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-900 dark:hover:bg-slate-800"
             }`}
           >
-            <span className="flex w-full items-center justify-center gap-2 text-sm font-medium">
-              <span className="truncate">{names[side - 1]}</span>
+            <span className="flex w-full items-center justify-center gap-2 px-1 text-lg font-semibold sm:text-xl">
+              <span>{names[side - 1]}</span>
             </span>
-            <span className="text-7xl font-bold leading-none tabular-nums" data-testid={`score-${side}`}>
+            <span className="text-8xl font-bold leading-none tabular-nums" data-testid={`score-${side}`}>
               {scoreOf(side)}
             </span>
             <span className="flex flex-col items-center gap-1 text-xs text-slate-600 dark:text-slate-400">

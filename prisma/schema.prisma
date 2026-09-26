@@ -11,11 +11,20 @@ model User {
   name          String
   email         String              @unique
   passwordHash  String
+  // ADMIN can create tournaments and grant/revoke ORGANIZER access; ORGANIZER
+  // can create tournaments; USER (the default) cannot. See lib/roles.ts.
+  role          UserRole            @default(USER)
   createdAt     DateTime            @default(now())
   tournaments   Tournament[]
   refereeRoles  TournamentReferee[]
   entryPlayers  EntryPlayer[]
   notifications Notification[]
+}
+
+enum UserRole {
+  ADMIN
+  ORGANIZER
+  USER
 }
 
 enum EventCategory {

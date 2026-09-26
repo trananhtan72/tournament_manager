@@ -8,6 +8,7 @@ import { revalidateTournament } from "@/lib/revalidate";
 import { prisma } from "@/lib/prisma";
 import { slugify } from "@/lib/slugify";
 import { requireUserId } from "@/lib/session";
+import { canCreateTournaments, NOT_AUTHORIZED_TO_CREATE_TOURNAMENT } from "@/lib/roles";
 import { MAX_COURTS, MIN_COURTS } from "@/lib/tournament/courts";
 import {
   MAX_REGULATIONS_JSON_LENGTH,
@@ -91,6 +92,11 @@ export async function createTournament(
   formData: FormData,
 ): Promise<TournamentActionState> {
   const userId = await requireUserId();
+
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { role: true } });
+  if (!user || !canCreateTournaments(user.role)) {
+    return { error: NOT_AUTHORIZED_TO_CREATE_TOURNAMENT };
+  }
 
   const parsed = tournamentSchema.safeParse(tournamentFormValues(formData));
   if (!parsed.success) {

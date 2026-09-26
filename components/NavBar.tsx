@@ -11,7 +11,7 @@ const RECENT_NOTIFICATIONS_LIMIT = 10;
 export async function NavBar() {
   const session = await auth();
 
-  const [recentNotifications, unreadCount, refereeRoles] = session?.user?.id
+  const [recentNotifications, unreadCount, refereeRoles, me] = session?.user?.id
     ? await Promise.all([
         prisma.notification.findMany({
           where: { userId: session.user.id },
@@ -22,8 +22,9 @@ export async function NavBar() {
           where: { userId: session.user.id, read: false },
         }),
         prisma.tournamentReferee.count({ where: { userId: session.user.id } }),
+        prisma.user.findUnique({ where: { id: session.user.id }, select: { role: true } }),
       ])
-    : [[], 0, 0];
+    : [[], 0, 0, null];
 
   return (
     <header className="border-b border-slate-200 dark:border-slate-800">
@@ -61,6 +62,11 @@ export async function NavBar() {
               <Link href="/organizer" className="hover:underline">
                 Organizer console
               </Link>
+              {me?.role === "ADMIN" && (
+                <Link href="/admin" className="hover:underline">
+                  Admin
+                </Link>
+              )}
               <span className="hidden text-slate-500 sm:inline">
                 {session.user.email}
               </span>

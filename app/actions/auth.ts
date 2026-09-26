@@ -5,6 +5,7 @@ import { z } from "zod";
 import { AuthError } from "next-auth";
 import { signIn, signOut } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { isAdminEmail } from "@/lib/roles";
 
 export async function signOutAction(): Promise<void> {
   await signOut({ redirectTo: "/" });
@@ -39,7 +40,9 @@ export async function signUp(
   }
 
   const passwordHash = await bcrypt.hash(password, 10);
-  await prisma.user.create({ data: { name, email, passwordHash } });
+  await prisma.user.create({
+    data: { name, email, passwordHash, role: isAdminEmail(email) ? "ADMIN" : "USER" },
+  });
 
   return signInWithCredentials(email, password, callbackUrl);
 }
