@@ -120,7 +120,7 @@ function GameFormatPicker({
               onChange={(e) => setCustomPoints(e.target.value)}
             />
             {Number.isInteger(pointsNumber) && pointsNumber >= MIN_POINTS_PER_GAME && (
-              <span className="text-xs text-slate-500">
+              <span className="text-xs text-muted">
                 Win by 2, capped at {gameScoreCap(pointsNumber)}
               </span>
             )}

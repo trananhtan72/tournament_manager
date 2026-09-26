@@ -77,7 +77,7 @@ export function CreateTournamentForm() {
         value={courtCount}
         onChange={(e) => setCourtCount(e.target.value)}
       />
-      <p className="-mt-2 text-xs text-slate-500">
+      <p className="-mt-2 text-xs text-muted">
         Matches are assigned to Court 1 … Court N when they&apos;re scored live, and each court gets its own
         scoreboard screen for a TV or tablet.
       </p>
@@ -97,7 +97,7 @@ export function CreateTournamentForm() {
           onChange={(e) => setWithdrawalDeadline(e.target.value)}
         />
       </div>
-      <p className="-mt-2 text-xs text-slate-500">
+      <p className="-mt-2 text-xs text-muted">
         Leave &quot;Entries open&quot; blank to accept entries straight away, and the withdrawal
         deadline blank to let players withdraw until the registration deadline.
       </p>

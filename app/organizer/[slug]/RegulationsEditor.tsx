@@ -35,8 +35,8 @@ function ToolbarButton({
       onClick={onClick}
       className={`min-w-8 rounded-md px-2 py-1 text-sm disabled:opacity-40 ${
         active
-          ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900"
-          : "text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
+          ? "bg-primary text-primary-foreground"
+          : "text-text hover:bg-surface-muted"
       }`}
     >
       {children}
@@ -73,9 +73,9 @@ export function RegulationsEditor({
       attributes: {
         "aria-label": "Regulations text",
         class:
-          "min-h-64 max-h-[50vh] overflow-y-auto rounded-b-md border border-slate-300 bg-white px-4 py-3 text-sm leading-relaxed text-slate-900 outline-none focus:border-slate-500 dark:border-slate-600 dark:bg-slate-950 dark:text-white " +
+          "min-h-64 max-h-[50vh] overflow-y-auto rounded-b-md border border-border bg-surface px-4 py-3 text-sm leading-relaxed text-text outline-none focus:border-primary " +
           "[&_h2]:mt-3 [&_h2]:text-lg [&_h2]:font-semibold [&_h3]:mt-2 [&_h3]:font-semibold [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:pl-6 [&_p]:my-2 " +
-          "[&_blockquote]:border-l-4 [&_blockquote]:border-slate-300 [&_blockquote]:pl-4 [&_blockquote]:text-slate-600 [&_a]:underline [&_hr]:my-3",
+          "[&_blockquote]:border-l-4 [&_blockquote]:border-border [&_blockquote]:pl-4 [&_blockquote]:text-muted [&_a]:underline [&_hr]:my-3",
       },
     },
   });
@@ -134,7 +134,7 @@ export function RegulationsEditor({
         <div
           role="toolbar"
           aria-label="Formatting"
-          className="flex flex-wrap items-center gap-1 rounded-t-md border border-b-0 border-slate-300 bg-slate-50 px-2 py-1 dark:border-slate-600 dark:bg-slate-900"
+          className="flex flex-wrap items-center gap-1 rounded-t-md border border-b-0 border-border bg-surface-muted px-2 py-1"
         >
           <ToolbarButton label="Bold" active={active?.bold} onClick={() => chain()?.toggleBold().run()}>
             <strong>B</strong>
@@ -145,14 +145,14 @@ export function RegulationsEditor({
           <ToolbarButton label="Underline" active={active?.underline} onClick={() => chain()?.toggleUnderline().run()}>
             <u>U</u>
           </ToolbarButton>
-          <span className="mx-1 h-5 w-px bg-slate-300 dark:bg-slate-600" aria-hidden />
+          <span className="mx-1 h-5 w-px bg-border" aria-hidden />
           <ToolbarButton label="Heading" active={active?.h2} onClick={() => chain()?.toggleHeading({ level: 2 }).run()}>
             H2
           </ToolbarButton>
           <ToolbarButton label="Subheading" active={active?.h3} onClick={() => chain()?.toggleHeading({ level: 3 }).run()}>
             H3
           </ToolbarButton>
-          <span className="mx-1 h-5 w-px bg-slate-300 dark:bg-slate-600" aria-hidden />
+          <span className="mx-1 h-5 w-px bg-border" aria-hidden />
           <ToolbarButton label="Bulleted list" active={active?.bulletList} onClick={() => chain()?.toggleBulletList().run()}>
             • List
           </ToolbarButton>
@@ -168,7 +168,7 @@ export function RegulationsEditor({
           <ToolbarButton label={active?.link ? "Remove link" : "Add link"} active={active?.link} onClick={toggleLink}>
             Link
           </ToolbarButton>
-          <span className="mx-1 h-5 w-px bg-slate-300 dark:bg-slate-600" aria-hidden />
+          <span className="mx-1 h-5 w-px bg-border" aria-hidden />
           <ToolbarButton label="Undo" disabled={!active?.canUndo} onClick={() => chain()?.undo().run()}>
             ↶
           </ToolbarButton>
@@ -179,12 +179,12 @@ export function RegulationsEditor({
         <EditorContent editor={editor} />
       </div>
       {linkError && (
-        <p role="alert" className="text-sm text-red-600 dark:text-red-400">
+        <p role="alert" className="text-sm text-error">
           {linkError}
         </p>
       )}
       <FormError message={state.error} />
-      <p className="text-xs text-slate-500">
+      <p className="text-xs text-muted">
         Players read this exactly as formatted here, in a popup on the tournament page. Clear all the text and
         save to remove the regulations.
       </p>

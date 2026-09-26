@@ -16,7 +16,7 @@ export function PlayersList({ players }: { players: DirectoryPlayer[] }) {
 
   return (
     <div className="flex flex-col gap-4">
-      <label className="flex max-w-sm flex-col gap-1 text-sm font-medium text-slate-700 dark:text-slate-200">
+      <label className="flex max-w-sm flex-col gap-1 text-sm font-medium text-text">
         Search players
         <input
           type="search"
@@ -24,22 +24,22 @@ export function PlayersList({ players }: { players: DirectoryPlayer[] }) {
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Type a name…"
           autoComplete="off"
-          className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-normal text-slate-900 outline-none focus:border-slate-500 dark:border-slate-600 dark:bg-slate-900 dark:text-white"
+          className="rounded-md border border-border bg-surface px-3 py-2 text-sm font-normal text-text outline-none focus:border-primary"
         />
       </label>
 
-      <p className="text-sm text-slate-500" aria-live="polite">
+      <p className="text-sm text-muted" aria-live="polite">
         {searching
           ? `${visible.length} of ${players.length} ${players.length === 1 ? "player" : "players"}`
           : `${players.length} ${players.length === 1 ? "player" : "players"}`}
       </p>
 
       {visible.length === 0 ? (
-        <p className="text-sm text-slate-500">No players match &ldquo;{query.trim()}&rdquo;.</p>
+        <p className="text-sm text-muted">No players match &ldquo;{query.trim()}&rdquo;.</p>
       ) : (
         groups.map((group) => (
           <section key={group.letter} className="flex flex-col gap-1">
-            <h2 className="border-b border-slate-200 pb-1 text-sm font-semibold text-slate-500 dark:border-slate-800">
+            <h2 className="border-b border-border pb-1 text-sm font-semibold text-muted">
               {group.letter}
             </h2>
             <ul className="flex flex-col">
@@ -49,7 +49,7 @@ export function PlayersList({ players }: { players: DirectoryPlayer[] }) {
                   className="flex flex-col gap-0.5 py-1.5 text-sm sm:flex-row sm:items-baseline sm:justify-between sm:gap-4"
                 >
                   <span className="font-medium">{player.name}</span>
-                  <span className="text-slate-600 dark:text-slate-400">{player.events.join(" · ")}</span>
+                  <span className="text-muted">{player.events.join(" · ")}</span>
                 </li>
               ))}
             </ul>

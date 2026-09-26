@@ -33,7 +33,7 @@ function StartFields({
       }}
       className="flex flex-col gap-4"
     >
-      <p className="text-sm text-slate-600 dark:text-slate-400">{intro}</p>
+      <p className="text-sm text-muted">{intro}</p>
 
       <CourtSelect
         label="Court"
@@ -47,7 +47,7 @@ function StartFields({
       />
 
       <div className="flex flex-col gap-2">
-        <span className="text-sm font-medium text-slate-700 dark:text-slate-200">Who serves first? (after the toss)</span>
+        <span className="text-sm font-medium text-text">Who serves first? (after the toss)</span>
         <div className="flex flex-col gap-3 sm:flex-row">
           <SubmitButton name="firstServer" value="1" variant="secondary" pendingLabel="Starting…">
             {names[0]} serves first
@@ -89,16 +89,16 @@ export function StartLiveForm({
 
   if (viewer === "organizer" && refereeName !== null) {
     return (
-      <div className="flex flex-col gap-3 rounded-lg border border-slate-200 p-4 dark:border-slate-700">
+      <div className="flex flex-col gap-3 rounded-lg border border-border p-4">
         <div>
           <h2 className="text-lg font-semibold">Waiting for {refereeName} to start the match</h2>
-          <p className="text-sm text-slate-600 dark:text-slate-400">
+          <p className="text-sm text-muted">
             After the toss, {refereeName} picks the court and who serves first on their own phone or tablet, then scores
             the match. It will show as live here and in the Match center once they do.
           </p>
         </div>
         <details className="text-sm">
-          <summary className="cursor-pointer text-slate-600 underline dark:text-slate-400">
+          <summary className="cursor-pointer text-muted underline">
             Start it here on their behalf instead
           </summary>
           <div className="pt-3">
@@ -113,7 +113,7 @@ export function StartLiveForm({
   }
 
   return (
-    <div className="flex flex-col gap-4 rounded-lg border border-slate-200 p-4 dark:border-slate-700">
+    <div className="flex flex-col gap-4 rounded-lg border border-border p-4">
       <h2 className="text-lg font-semibold">Start live scoring</h2>
       <StartFields
         {...fields}

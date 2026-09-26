@@ -47,17 +47,17 @@ function TournamentList({
           <li key={t.id}>
             <Link
               href={`/t/${t.slug}`}
-              className="flex flex-col gap-1 rounded-md border border-slate-200 px-4 py-3 hover:border-slate-400 dark:border-slate-700 dark:hover:border-slate-500"
+              className="flex flex-col gap-1 rounded-md border border-border px-4 py-3 hover:border-primary"
             >
               <span className="flex flex-wrap items-center gap-2">
                 <span className="font-medium">{t.name}</span>
                 {showRegistration && registrationStatus(t) === "open" && (
-                  <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200">
+                  <span className="rounded-full bg-success/15 px-2 py-0.5 text-xs font-medium text-success">
                     Registration open
                   </span>
                 )}
               </span>
-              <span className="text-sm text-slate-600 dark:text-slate-400">
+              <span className="text-sm text-muted">
                 {t.venue} · {formatDateRange(t.startDate, t.endDate)} ·{" "}
                 {t._count.events} event{t._count.events === 1 ? "" : "s"}
               </span>
@@ -75,7 +75,7 @@ export default async function HomePage() {
 
   if (tournaments.length === 0) {
     return (
-      <div className="text-center text-slate-600 dark:text-slate-400">
+      <div className="mx-auto w-full max-w-4xl text-center text-muted">
         <p>No tournaments yet.</p>
         <Link href="/organizer" className="underline">
           Create the first one
@@ -85,7 +85,7 @@ export default async function HomePage() {
   }
 
   return (
-    <div className="flex flex-col gap-8">
+    <div className="mx-auto flex w-full max-w-4xl flex-col gap-8">
       <TournamentList title="Ongoing" tournaments={ongoing} showRegistration />
       <TournamentList title="Upcoming" tournaments={upcoming} showRegistration />
       <TournamentList title="Past" tournaments={past} showRegistration={false} />

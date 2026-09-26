@@ -20,7 +20,7 @@ export default async function NotificationsPage() {
   const hasUnread = notifications.some((n) => !n.read);
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="mx-auto flex w-full max-w-4xl flex-col gap-6">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold">Notifications</h1>
         {hasUnread && (
@@ -34,7 +34,7 @@ export default async function NotificationsPage() {
       </div>
 
       {notifications.length === 0 ? (
-        <p className="text-sm text-slate-500">You have no notifications yet.</p>
+        <p className="text-sm text-muted">You have no notifications yet.</p>
       ) : (
         <ul className="flex flex-col gap-2">
           {notifications.map((n) => (
@@ -43,12 +43,12 @@ export default async function NotificationsPage() {
                 <div
                   className={`flex flex-col gap-1 rounded-md border px-4 py-3 ${
                     n.read
-                      ? "border-slate-200 dark:border-slate-700"
-                      : "border-slate-400 bg-slate-50 dark:border-slate-500 dark:bg-slate-800"
+                      ? "border-border"
+                      : "border-primary/40 bg-primary/5"
                   }`}
                 >
-                  <p className="text-sm text-slate-900 dark:text-white">{n.message}</p>
-                  <p className="text-xs text-slate-500">{formatDateTime(n.createdAt)}</p>
+                  <p className="text-sm text-text">{n.message}</p>
+                  <p className="text-xs text-muted">{formatDateTime(n.createdAt)}</p>
                 </div>
               </MarkReadLink>
             </li>

@@ -31,7 +31,7 @@ export default async function DrawsTab({ params }: PageProps<"/t/[slug]/draws">)
   if (!tournament) notFound();
 
   if (tournament.events.length === 0) {
-    return <p className="text-sm text-slate-500">No events have been added yet.</p>;
+    return <p className="text-sm text-muted">No events have been added yet.</p>;
   }
 
   return (
@@ -58,7 +58,7 @@ export default async function DrawsTab({ params }: PageProps<"/t/[slug]/draws">)
               published ? (
                 drawStage(event.drawFormat, event.matches)
               ) : (
-                <span key="stage" className="text-slate-500">
+                <span key="stage" className="text-muted">
                   Not published yet
                 </span>
               ),
@@ -66,7 +66,7 @@ export default async function DrawsTab({ params }: PageProps<"/t/[slug]/draws">)
           };
         })}
       />
-      <p className="text-xs text-slate-500">
+      <p className="text-xs text-muted">
         Size is the number of entries in the draw. Until a draw is published it shows the confirmed entries so far.
       </p>
     </div>

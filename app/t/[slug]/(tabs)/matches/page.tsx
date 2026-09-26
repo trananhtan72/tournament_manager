@@ -113,7 +113,7 @@ export default async function MatchesTab({ params }: PageProps<"/t/[slug]/matche
 
   if (playable.length === 0) {
     return (
-      <p className="text-sm text-slate-500">
+      <p className="text-sm text-muted">
         No draws have been published yet, so there are no matches to show.
       </p>
     );
@@ -126,31 +126,31 @@ export default async function MatchesTab({ params }: PageProps<"/t/[slug]/matche
   return (
     <div className="flex flex-col gap-8">
       <AutoRefresh intervalMs={refreshMs} />
-      <p className="text-sm text-slate-600 dark:text-slate-400">
+      <p className="text-sm text-muted">
         {playable.length} {playable.length === 1 ? "match" : "matches"} · times are local to the venue
       </p>
 
       {liveNow.length > 0 && (
         <section className="flex flex-col gap-3" aria-labelledby="live-now-heading">
-          <h2 id="live-now-heading" className="flex items-center gap-2 text-lg font-semibold text-red-600 dark:text-red-400">
-            <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-red-600 dark:bg-red-400" aria-hidden />
+          <h2 id="live-now-heading" className="flex items-center gap-2 text-lg font-semibold text-accent">
+            <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-accent" aria-hidden />
             Live now ({liveNow.length})
           </h2>
           <ul className="flex flex-col gap-2">
             {liveNow.map((item) => (
               <li
                 key={item.match.id}
-                className="flex flex-col gap-2 rounded-md border border-red-200 px-4 py-3 sm:flex-row sm:items-center sm:gap-4 dark:border-red-900"
+                className="flex flex-col gap-2 rounded-md border border-accent/30 px-4 py-3 sm:flex-row sm:items-center sm:gap-4"
               >
                 <div className="flex shrink-0 items-baseline gap-2 sm:w-28 sm:flex-col sm:items-start sm:gap-0">
                   {item.match.court ? (
                     <span className="font-semibold">{item.match.court}</span>
                   ) : (
-                    <span className="text-sm text-slate-600 dark:text-slate-400">In progress</span>
+                    <span className="text-sm text-muted">In progress</span>
                   )}
                 </div>
                 <MatchCard match={item.view} />
-                <div className="text-sm text-slate-600 dark:text-slate-400">
+                <div className="text-sm text-muted">
                   <Link href={`/t/${slug}/${item.eventId}`} className="underline">
                     {item.eventName}
                   </Link>
@@ -163,7 +163,7 @@ export default async function MatchesTab({ params }: PageProps<"/t/[slug]/matche
       )}
 
       {days.length === 0 && liveNow.length === 0 && (
-        <p className="text-sm text-slate-500">The schedule hasn&apos;t been set yet. Check back soon.</p>
+        <p className="text-sm text-muted">The schedule hasn&apos;t been set yet. Check back soon.</p>
       )}
 
       {days.map((day) => (
@@ -173,19 +173,19 @@ export default async function MatchesTab({ params }: PageProps<"/t/[slug]/matche
             {day.items.map((item) => (
               <li
                 key={item.match.id}
-                className="flex flex-col gap-2 rounded-md border border-slate-200 px-4 py-3 sm:flex-row sm:items-center sm:gap-4 dark:border-slate-700"
+                className="flex flex-col gap-2 rounded-md border border-border px-4 py-3 sm:flex-row sm:items-center sm:gap-4"
               >
                 <div className="flex shrink-0 items-baseline gap-2 sm:w-28 sm:flex-col sm:items-start sm:gap-0">
                   <span className="font-semibold tabular-nums">{formatTimeOfDay(item.scheduledAt)}</span>
                   {item.court && (
-                    <span className="text-sm text-slate-600 dark:text-slate-400">{item.court}</span>
+                    <span className="text-sm text-muted">{item.court}</span>
                   )}
                   {item.match.status !== null && item.match.startedAt && (
-                    <span className="text-xs text-slate-500">Started {formatTimeOfDay(item.match.startedAt)}</span>
+                    <span className="text-xs text-muted">Started {formatTimeOfDay(item.match.startedAt)}</span>
                   )}
                 </div>
                 <MatchCard match={item.view} />
-                <div className="text-sm text-slate-600 dark:text-slate-400">
+                <div className="text-sm text-muted">
                   <Link href={`/t/${slug}/${item.eventId}`} className="underline">
                     {item.eventName}
                   </Link>
@@ -204,12 +204,12 @@ export default async function MatchesTab({ params }: PageProps<"/t/[slug]/matche
               {days.length > 0 ? "Not yet scheduled" : "Matches"}
             </h2>
             {days.length > 0 && (
-              <p className="text-sm text-slate-500">These matches don&apos;t have a time yet.</p>
+              <p className="text-sm text-muted">These matches don&apos;t have a time yet.</p>
             )}
           </div>
           {[...unscheduledGroups.entries()].map(([key, group]) => (
             <div key={key} className="flex flex-col gap-2">
-              <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+              <h3 className="text-sm font-semibold text-text">
                 <Link href={`/t/${slug}/${group.eventId}`} className="underline">
                   {group.eventName}
                 </Link>

@@ -12,8 +12,8 @@ import { deleteTournament } from "@/app/actions/tournaments";
 
 function Stat({ label, value, children }: { label: string; value: number; children?: React.ReactNode }) {
   return (
-    <div className="flex flex-col gap-1 rounded-md border border-slate-200 px-4 py-3 dark:border-slate-700">
-      <span className="text-xs font-medium uppercase tracking-wide text-slate-500">{label}</span>
+    <div className="flex flex-col gap-1 rounded-md border border-border px-4 py-3">
+      <span className="text-xs font-medium uppercase tracking-wide text-muted">{label}</span>
       <span className="text-2xl font-semibold tabular-nums">{value}</span>
       {children}
     </div>
@@ -68,9 +68,9 @@ export default async function OrganizerOverviewPage({
         />
       </section>
 
-      <section className="flex flex-col gap-3 border-t border-slate-200 pt-6 dark:border-slate-800">
+      <section className="flex flex-col gap-3 border-t border-border pt-6">
         <h2 className="text-lg font-semibold">Regulations</h2>
-        <p className="text-sm text-slate-600 dark:text-slate-400">
+        <p className="text-sm text-muted">
           {regulations
             ? "Players can read these in a popup on the tournament page."
             : "Not written yet. Once you add regulations, players can read them in a popup on the tournament page."}
@@ -85,8 +85,8 @@ export default async function OrganizerOverviewPage({
         </div>
       </section>
 
-      <section className="flex flex-col gap-3 border-t border-slate-200 pt-6 dark:border-slate-800">
-        <h2 className="text-lg font-semibold text-red-600 dark:text-red-400">Danger zone</h2>
+      <section className="flex flex-col gap-3 border-t border-border pt-6">
+        <h2 className="text-lg font-semibold text-error">Danger zone</h2>
         <ActionForm
           action={deleteWithId}
           variant="danger"

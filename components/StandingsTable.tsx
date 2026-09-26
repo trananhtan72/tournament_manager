@@ -23,7 +23,7 @@ export function StandingsTable({
     <div className="overflow-x-auto">
       <table className="w-full min-w-[28rem] border-collapse text-sm">
         <thead>
-          <tr className="border-b border-slate-200 text-left text-slate-500 dark:border-slate-700">
+          <tr className="border-b border-border text-left text-muted">
             <th className="py-2 pr-2 font-medium">#</th>
             <th className="py-2 pr-2 font-medium">Entry</th>
             <th className="py-2 pr-2 text-right font-medium">P</th>
@@ -38,21 +38,19 @@ export function StandingsTable({
             return (
               <tr
                 key={row.entryId}
-                className={`border-b border-slate-100 last:border-b-0 dark:border-slate-800 ${
-                  advancing ? "bg-emerald-50 dark:bg-emerald-950/40" : ""
-                }`}
+                className={`border-b border-border last:border-b-0 ${advancing ? "bg-success/10" : ""}`}
               >
-                <td className="py-2 pr-2 text-slate-500">{row.rank}</td>
-                <td className="py-2 pr-2 font-medium text-slate-900 dark:text-white">{row.label}</td>
-                <td className="py-2 pr-2 text-right text-slate-600 dark:text-slate-400">{row.played}</td>
-                <td className="py-2 pr-2 text-right text-slate-600 dark:text-slate-400">
+                <td className="py-2 pr-2 text-muted">{row.rank}</td>
+                <td className="py-2 pr-2 font-medium text-text">{row.label}</td>
+                <td className="py-2 pr-2 text-right text-muted">{row.played}</td>
+                <td className="py-2 pr-2 text-right text-muted">
                   {row.wins}-{row.losses}
                 </td>
-                <td className="py-2 pr-2 text-right text-slate-600 dark:text-slate-400">
+                <td className="py-2 pr-2 text-right text-muted">
                   {row.gamesWon - row.gamesLost >= 0 ? "+" : ""}
                   {row.gamesWon - row.gamesLost}
                 </td>
-                <td className="py-2 text-right text-slate-600 dark:text-slate-400">
+                <td className="py-2 text-right text-muted">
                   {row.pointsWon - row.pointsLost >= 0 ? "+" : ""}
                   {row.pointsWon - row.pointsLost}
                 </td>

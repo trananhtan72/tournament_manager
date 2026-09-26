@@ -26,7 +26,7 @@ function MatchList({
   if (matches.length === 0) return null;
   return (
     <div className="flex flex-col gap-2">
-      <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300">{title}</h3>
+      <h3 className="text-sm font-semibold text-text">{title}</h3>
       <div className="flex flex-wrap gap-3">
         {matches.map((m) => (
           <MatchCard key={m.id} match={toBracketMatchView(m, formatFor(m), { live: liveStates.get(m.id) ?? null })} />
@@ -110,7 +110,7 @@ export default async function PublicEventPage({
         : poolsView.length > 0;
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="mx-auto flex w-full max-w-4xl flex-col gap-6">
       <AutoRefresh intervalMs={event.drawPublished ? refreshMs : null} />
       <div className="flex flex-wrap items-center justify-between gap-2">
         <Link href={`/t/${slug}`} className="text-sm underline">
@@ -123,16 +123,16 @@ export default async function PublicEventPage({
 
       <div>
         <h1 className="text-2xl font-semibold">{event.name}</h1>
-        <p className="text-sm text-slate-600 dark:text-slate-400">
+        <p className="text-sm text-muted">
           Draw format: {drawFormatLabels[event.drawFormat]}
         </p>
-        <p className="text-sm text-slate-600 dark:text-slate-400">
+        <p className="text-sm text-muted">
           Game format: {describeEventGameFormats(event)}
         </p>
       </div>
 
       {!event.drawPublished || !hasDrawContent ? (
-        <p className="text-sm text-slate-500">The draw hasn&apos;t been published yet.</p>
+        <p className="text-sm text-muted">The draw hasn&apos;t been published yet.</p>
       ) : event.drawFormat === "SINGLE_ELIMINATION" ? (
         <Bracket matches={bracketMatches} />
       ) : event.drawFormat === "ROUND_ROBIN" ? (
@@ -150,7 +150,7 @@ export default async function PublicEventPage({
             </div>
           ))}
           {knockoutGenerated && (
-            <div className="flex flex-col gap-3 border-t border-slate-200 pt-6 dark:border-slate-800">
+            <div className="flex flex-col gap-3 border-t border-border pt-6">
               <h2 className="text-lg font-semibold">Knockout stage</h2>
               <Bracket matches={bracketMatches} />
             </div>

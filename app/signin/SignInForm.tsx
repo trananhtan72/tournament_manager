@@ -25,7 +25,7 @@ export function SignInForm({
     <div className="mx-auto max-w-sm">
       <h1 className="mb-6 text-xl font-semibold">Sign in</h1>
       {sessionExpired && (
-        <p className="mb-4 text-sm text-amber-600 dark:text-amber-400">
+        <p className="mb-4 text-sm text-warning">
           Your session is no longer valid. Please sign in again.
         </p>
       )}
@@ -51,7 +51,7 @@ export function SignInForm({
         <FormError message={state.error} />
         <SubmitButton>Sign in</SubmitButton>
       </form>
-      <p className="mt-4 text-sm text-slate-600 dark:text-slate-400">
+      <p className="mt-4 text-sm text-muted">
         Need an account?{" "}
         <Link
           href={`/signup?callbackUrl=${encodeURIComponent(callbackUrl)}`}

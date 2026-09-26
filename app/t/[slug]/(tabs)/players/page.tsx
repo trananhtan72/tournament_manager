@@ -36,7 +36,7 @@ export default async function PlayersTab({ params }: PageProps<"/t/[slug]/player
   );
 
   if (players.length === 0) {
-    return <p className="text-sm text-slate-500">No players have been confirmed yet.</p>;
+    return <p className="text-sm text-muted">No players have been confirmed yet.</p>;
   }
 
   return <PlayersList players={players} />;

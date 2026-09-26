@@ -25,7 +25,7 @@ export default async function RefereeMatchPage({ params }: PageProps<"/referee/m
   const scorable = ready ? toScorable(match, gameFormatForMatch(match.event, match)) : null;
 
   return (
-    <div className="flex flex-col gap-8">
+    <div className="mx-auto flex w-full max-w-4xl flex-col gap-8">
       <LiveMatchScreen
         match={match}
         backHref="/referee"
@@ -37,7 +37,7 @@ export default async function RefereeMatchPage({ params }: PageProps<"/referee/m
       />
 
       {scorable && match.status === null && (
-        <details className="rounded-md border border-slate-200 px-4 py-3 text-sm dark:border-slate-700">
+        <details className="rounded-md border border-border px-4 py-3 text-sm">
           <summary className="cursor-pointer font-medium">
             Walkover, retirement, or enter the full result instead
           </summary>

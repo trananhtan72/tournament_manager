@@ -2,7 +2,6 @@
 
 import { useActionState, useCallback, useState } from "react";
 import { submitMatchResult, type MatchActionState } from "@/app/actions/matches";
-import { MatchCard } from "@/components/Bracket";
 import { SelectField } from "@/components/SelectField";
 import { SubmitButton } from "@/components/SubmitButton";
 import { Button } from "@/components/Button";
@@ -70,39 +69,22 @@ export function MatchResultForm({
   const [state, formAction] = useActionState(action, initialState);
 
   if (!isOpen) {
-    const winnerLabel = existing.winnerId === entry1Id ? entry1Label : existing.winnerId === entry2Id ? entry2Label : null;
+    // Just the "edit" affordance: the surrounding match row already shows
+    // who's playing and the final score, so repeating it here would just be
+    // noise underneath it.
+    if (!allowEdit) return null;
     return (
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex min-w-0 flex-col gap-1">
-        <MatchCard
-          match={{
-            id: matchId,
-            round: 0,
-            position: 0,
-            entry1Label,
-            entry1Seed: null,
-            entry2Label,
-            entry2Seed: null,
-            winnerLabel,
-            isBye: false,
-            status: existing.status,
-            games: existing.games,
-            gamesPerMatch,
-          }}
-        />
-        {startedLabel && <span className="text-xs text-slate-500">{startedLabel}</span>}
-        </div>
-        {allowEdit && (
-          <Button type="button" variant="secondary" className="shrink-0 px-2 py-1 text-xs" onClick={() => setIsOpen(true)}>
-            Edit result
-          </Button>
-        )}
+      <div className="flex items-center gap-3">
+        {startedLabel && <span className="text-xs text-muted">{startedLabel}</span>}
+        <Button type="button" variant="secondary" className="shrink-0 px-2 py-1 text-xs" onClick={() => setIsOpen(true)}>
+          Edit result
+        </Button>
       </div>
     );
   }
 
   return (
-    <form action={formAction} className="flex flex-col gap-3 rounded-md border border-slate-200 p-3 dark:border-slate-700">
+    <form action={formAction} className="flex flex-col gap-3 rounded-md border border-border p-3">
       <p className="text-sm font-medium">
         {entry1Label} vs {entry2Label}
       </p>
@@ -119,13 +101,13 @@ export function MatchResultForm({
 
       {status === "COMPLETED" ? (
         <div className="flex flex-col gap-2">
-          <p className="text-xs text-slate-500">
+          <p className="text-xs text-muted">
             {gamesPerMatch === 1 ? "One game" : `Best of ${gamesPerMatch}`} to {pointsPerGame} — win by 2, capped at{" "}
             {gameScoreCap(pointsPerGame)}.
           </p>
           {gameIndexes.map((i) => (
             <div key={i} className="flex items-center gap-2 text-sm">
-              <span className="w-14 shrink-0 text-slate-500">Game {i + 1}</span>
+              <span className="w-14 shrink-0 text-muted">Game {i + 1}</span>
               <input
                 type="number"
                 min={0}
@@ -138,9 +120,9 @@ export function MatchResultForm({
                   setScores(next);
                 }}
                 name={`game${i + 1}Entry1`}
-                className="w-16 rounded-md border border-slate-300 bg-white px-2 py-1 text-sm outline-none focus:border-slate-500 dark:border-slate-600 dark:bg-slate-900 dark:text-white"
+                className="w-16 rounded-md border border-border bg-surface px-2 py-1 text-sm outline-none focus:border-primary"
               />
-              <span className="text-slate-400">–</span>
+              <span className="text-muted">–</span>
               <input
                 type="number"
                 min={0}
@@ -153,9 +135,9 @@ export function MatchResultForm({
                   setScores(next);
                 }}
                 name={`game${i + 1}Entry2`}
-                className="w-16 rounded-md border border-slate-300 bg-white px-2 py-1 text-sm outline-none focus:border-slate-500 dark:border-slate-600 dark:bg-slate-900 dark:text-white"
+                className="w-16 rounded-md border border-border bg-surface px-2 py-1 text-sm outline-none focus:border-primary"
               />
-              {i >= minGames && <span className="text-xs text-slate-400">(if needed)</span>}
+              {i >= minGames && <span className="text-xs text-muted">(if needed)</span>}
             </div>
           ))}
         </div>
@@ -175,7 +157,7 @@ export function MatchResultForm({
       )}
 
       {status !== "WALKOVER" && (
-        <label className="flex flex-col gap-1 text-sm font-medium text-slate-700 dark:text-slate-200">
+        <label className="flex flex-col gap-1 text-sm font-medium text-text">
           Match started
           <input
             type="datetime-local"
@@ -183,9 +165,9 @@ export function MatchResultForm({
             required
             defaultValue={existing.startedAt ?? scheduledAt ?? ""}
             ref={prefillNow}
-            className="w-56 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-normal text-slate-900 outline-none focus:border-slate-500 dark:border-slate-600 dark:bg-slate-900 dark:text-white"
+            className="w-56 rounded-md border border-border bg-surface px-3 py-2 text-sm font-normal text-text outline-none focus:border-primary"
           />
-          <span className="text-xs font-normal text-slate-500">Venue time. Saved with the result.</span>
+          <span className="text-xs font-normal text-muted">Venue time. Saved with the result.</span>
         </label>
       )}
 

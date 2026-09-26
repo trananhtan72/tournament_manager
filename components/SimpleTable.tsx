@@ -11,9 +11,9 @@ export function SimpleTable({
   rows: { key: string; cells: ReactNode[] }[];
 }) {
   return (
-    <div className="overflow-x-auto rounded-md border border-slate-200 dark:border-slate-700">
+    <div className="overflow-x-auto rounded-md border border-border">
       <table className="w-full min-w-max text-left text-sm">
-        <thead className="bg-slate-50 text-slate-600 dark:bg-slate-900 dark:text-slate-400">
+        <thead className="bg-surface-muted text-muted">
           <tr>
             {columns.map((column) => (
               <th
@@ -26,7 +26,7 @@ export function SimpleTable({
             ))}
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
+        <tbody className="divide-y divide-border">
           {rows.map((row) => (
             <tr key={row.key}>
               {row.cells.map((cell, i) => (

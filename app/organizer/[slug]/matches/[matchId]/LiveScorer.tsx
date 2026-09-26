@@ -25,7 +25,7 @@ function GamePips({ won, needed }: { won: number; needed: number }) {
         <span
           key={i}
           className={`h-2.5 w-2.5 rounded-full border ${
-            i < won ? "border-slate-900 bg-slate-900 dark:border-white dark:bg-white" : "border-slate-400"
+            i < won ? "border-primary bg-primary" : "border-border"
           }`}
         />
       ))}
@@ -177,18 +177,18 @@ export function LiveScorer({
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <span className="flex items-center gap-2 text-sm font-semibold text-red-600 dark:text-red-400">
-          <span className="h-2 w-2 animate-pulse rounded-full bg-red-600 dark:bg-red-400" aria-hidden />
+        <span className="flex items-center gap-2 text-sm font-semibold text-accent">
+          <span className="h-2 w-2 animate-pulse rounded-full bg-accent" aria-hidden />
           LIVE · Game {state.currentGame}
         </span>
         {flag && (
-          <span role="status" className="rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-800 dark:bg-amber-900 dark:text-amber-200">
+          <span role="status" className="rounded-full bg-warning/15 px-3 py-1 text-xs font-medium text-warning">
             {flag}
           </span>
         )}
       </div>
 
-      <div className="flex flex-wrap items-end gap-x-4 gap-y-2 rounded-md border border-slate-200 px-3 py-2 dark:border-slate-700">
+      <div className="flex flex-wrap items-end gap-x-4 gap-y-2 rounded-md border border-border px-3 py-2">
         <CourtSelect
           key={courtKey}
           label="Court"
@@ -209,7 +209,7 @@ export function LiveScorer({
             <CopyLinkButton href={`${courtDisplayBase}/${courtNumber}`} />
           </div>
         ) : (
-          <p className="pb-1 text-xs text-slate-500">Pick a numbered court to get its scoreboard screen link.</p>
+          <p className="pb-1 text-xs text-muted">Pick a numbered court to get its scoreboard screen link.</p>
         )}
       </div>
 
@@ -228,8 +228,8 @@ export function LiveScorer({
             aria-label={`Point for ${names[side - 1]}`}
             className={`flex min-h-44 flex-col items-center justify-between gap-2 rounded-xl border-2 px-3 py-4 text-center transition-colors active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-70 ${
               state.server === side
-                ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-950/40"
-                : "border-slate-300 bg-white hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-900 dark:hover:bg-slate-800"
+                ? "border-success bg-success/10"
+                : "border-border bg-surface hover:bg-surface-muted"
             }`}
           >
             <span className="flex w-full items-center justify-center gap-2 px-1 text-lg font-semibold sm:text-xl">
@@ -238,26 +238,26 @@ export function LiveScorer({
             <span className="text-8xl font-bold leading-none tabular-nums" data-testid={`score-${side}`}>
               {scoreOf(side)}
             </span>
-            <span className="flex flex-col items-center gap-1 text-xs text-slate-600 dark:text-slate-400">
+            <span className="flex flex-col items-center gap-1 text-xs text-muted">
               <GamePips won={state.gamesWon[side - 1]} needed={gamesNeeded} />
-              {state.server === side ? <span className="font-medium text-emerald-700 dark:text-emerald-400">Serving</span> : <span>&nbsp;</span>}
+              {state.server === side ? <span className="font-medium text-success">Serving</span> : <span>&nbsp;</span>}
             </span>
           </button>
         ))}
       </div>
 
       {finishedGames.length > 0 && (
-        <p className="text-sm text-slate-600 dark:text-slate-400">
+        <p className="text-sm text-muted">
           Games: {finishedGames.map((g) => `${g.score1}–${g.score2}`).join(", ")}
         </p>
       )}
 
       {state.matchWinner ? (
-        <div className="flex flex-col gap-3 rounded-lg border border-emerald-300 bg-emerald-50 p-4 dark:border-emerald-800 dark:bg-emerald-950/40">
+        <div className="flex flex-col gap-3 rounded-lg border border-success/30 bg-success/10 p-4">
           <p className="font-semibold">
             {names[state.matchWinner - 1]} wins {Math.max(...state.gamesWon)}–{Math.min(...state.gamesWon)}
           </p>
-          <p className="text-sm text-slate-700 dark:text-slate-300">
+          <p className="text-sm text-muted">
             {finishedGames.map((g) => `${g.score1}–${g.score2}`).join(", ")}. Confirm to record this as the result
             and move the winner on, or undo the last point if it was a mis-tap.
           </p>
@@ -268,9 +268,9 @@ export function LiveScorer({
               value={startedAt}
               onChange={(e) => setStartedAt(e.target.value)}
               required
-              className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-normal text-slate-900 outline-none focus:border-slate-500 dark:border-slate-600 dark:bg-slate-900 dark:text-white"
+              className="rounded-md border border-border bg-surface px-3 py-2 text-sm font-normal text-text outline-none focus:border-primary"
             />
-            <span className="text-xs font-normal text-slate-500">Saved with the result. Correct it if this device&apos;s clock was off.</span>
+            <span className="text-xs font-normal text-muted">Saved with the result. Correct it if this device&apos;s clock was off.</span>
           </label>
           <div className="flex flex-wrap gap-2">
             <Button type="button" onClick={confirmResult} disabled={finishing}>
@@ -286,12 +286,12 @@ export function LiveScorer({
           <Button type="button" variant="secondary" onClick={undo} disabled={points.length === 0}>
             Undo last point
           </Button>
-          <span className="text-xs text-slate-500">{points.length} {points.length === 1 ? "rally" : "rallies"} played</span>
+          <span className="text-xs text-muted">{points.length} {points.length === 1 ? "rally" : "rallies"} played</span>
         </div>
       )}
 
       {error && (
-        <div role="alert" className="flex flex-wrap items-center gap-3 text-sm text-red-600 dark:text-red-400">
+        <div role="alert" className="flex flex-wrap items-center gap-3 text-sm text-error">
           <span>{error}</span>
           {unsynced && (
             <Button type="button" variant="secondary" onClick={reloadScore}>
@@ -301,15 +301,15 @@ export function LiveScorer({
         </div>
       )}
 
-      <div className="flex flex-wrap items-center gap-4 border-t border-slate-200 pt-4 text-sm dark:border-slate-800">
+      <div className="flex flex-wrap items-center gap-4 border-t border-border pt-4 text-sm">
         <Link href={backHref} className="underline">
           ← Back to {backLabel}
         </Link>
-        <button type="button" onClick={reset} disabled={finishing} className="text-red-600 underline disabled:opacity-50 dark:text-red-400">
+        <button type="button" onClick={reset} disabled={finishing} className="text-error underline disabled:opacity-50">
           Discard live score
         </button>
         {manualHref && (
-          <Link href={manualHref} className="text-slate-600 underline dark:text-slate-400">
+          <Link href={manualHref} className="text-muted underline">
             Walkover or retirement? Enter the result there
           </Link>
         )}

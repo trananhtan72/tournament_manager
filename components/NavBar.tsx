@@ -32,7 +32,7 @@ export async function NavBar() {
   const showOrganizerConsole = canCreateTournaments(me?.role ?? "USER") || ownedTournaments > 0;
 
   return (
-    <header className="border-b border-slate-200 dark:border-slate-800">
+    <header className="border-b border-border">
       <nav className="mx-auto flex max-w-4xl flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-3">
         {/* The logo file has blank margin around the artwork (and off-white
             noise in it), so the negative margins trim the margin and the
@@ -78,7 +78,7 @@ export async function NavBar() {
                 href="/account"
                 aria-label={`My account (${session.user.email}) — sign out from there`}
                 title={session.user.email ?? "My account"}
-                className="inline-flex items-center justify-center rounded-full p-1.5 text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white"
+                className="inline-flex items-center justify-center rounded-full p-1.5 text-muted hover:bg-surface-muted hover:text-text"
               >
                 <UserIcon className="h-5 w-5" />
               </Link>

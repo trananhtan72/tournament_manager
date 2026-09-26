@@ -45,7 +45,7 @@ export function EventRow({
   const remountKey = useRemountKey(state);
 
   return (
-    <li className="flex flex-col gap-3 rounded-md border border-slate-200 px-4 py-3 dark:border-slate-700">
+    <li className="flex flex-col gap-3 rounded-md border border-border px-4 py-3">
       <form action={formAction} className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
         <Fragment key={remountKey}>
           <EventNameFields initialName={name} initialCategory={category} />
@@ -72,11 +72,11 @@ export function EventRow({
           >
             Manage entries →
           </Link>
-          <span className="text-sm text-slate-500">
+          <span className="text-sm text-muted">
             {entryCount} {entryCount === 1 ? "entry" : "entries"}
           </span>
           {pendingApprovalCount > 0 && (
-            <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-900 dark:text-amber-200">
+            <span className="rounded-full bg-warning/15 px-2 py-0.5 text-xs font-medium text-warning">
               {pendingApprovalCount} awaiting approval
             </span>
           )}

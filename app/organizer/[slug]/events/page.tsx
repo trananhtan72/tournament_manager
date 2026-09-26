@@ -25,7 +25,7 @@ export default async function OrganizerEventsPage({
     <section className="flex flex-col gap-3">
       <h2 className="text-lg font-semibold">Events</h2>
       {tournament.events.length === 0 ? (
-        <p className="text-sm text-slate-500">No events yet.</p>
+        <p className="text-sm text-muted">No events yet.</p>
       ) : (
         <ul className="flex flex-col gap-3">
           {tournament.events.map((event) => (

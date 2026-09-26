@@ -52,7 +52,7 @@ export function GrantOrganizerForm() {
       </div>
       <FormError message={error} />
       {granted && !error && (
-        <p className="text-sm text-emerald-600 dark:text-emerald-400">Granted {granted}. They&apos;ve been notified.</p>
+        <p className="text-sm text-success">Granted {granted}. They&apos;ve been notified.</p>
       )}
     </form>
   );

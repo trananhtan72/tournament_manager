@@ -29,7 +29,7 @@ export function EntrySeedField({
           defaultValue={currentSeed ?? ""}
           disabled={disabled}
           onChange={() => formRef.current?.requestSubmit()}
-          className="rounded-md border border-slate-300 bg-white px-2 py-1 text-sm text-slate-900 outline-none focus:border-slate-500 disabled:opacity-50 dark:border-slate-600 dark:bg-slate-900 dark:text-white"
+          className="rounded-md border border-border bg-surface px-2 py-1 text-sm text-text outline-none focus:border-primary disabled:opacity-50"
         >
           <option value="">Unseeded</option>
           {SEED_OPTIONS.map((n) => (

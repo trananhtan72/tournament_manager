@@ -104,13 +104,13 @@ function MyEntryStatus({
 
   return (
     <div className="flex flex-col gap-2">
-      <p className="text-sm text-slate-700 dark:text-slate-300">{statusText(entry)}</p>
+      <p className="text-sm text-muted">{statusText(entry)}</p>
       {awaitingMyResponse ? (
         <Link href="/dashboard" className="text-sm underline">
           Respond from your dashboard →
         </Link>
       ) : withdrawalOpen && drawPublished ? (
-        <p className="text-sm text-slate-500">
+        <p className="text-sm text-muted">
           The draw has been published — contact the organizer if you need to withdraw.
         </p>
       ) : withdrawalOpen ? (
@@ -158,13 +158,13 @@ export function EventRegistrationPanel({
 
   if (registrationStatus === "not_open") {
     return (
-      <p className="text-sm text-slate-500">
+      <p className="text-sm text-muted">
         Registration opens{registrationOpensLabel ? ` on ${registrationOpensLabel}` : " soon"}.
       </p>
     );
   }
   if (registrationStatus === "closed") {
-    return <p className="text-sm text-slate-500">Registration is closed.</p>;
+    return <p className="text-sm text-muted">Registration is closed.</p>;
   }
 
   if (!signedIn) {

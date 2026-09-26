@@ -28,7 +28,7 @@ export default async function OrganizerPage() {
       <section className="flex flex-col gap-3">
         <h1 className="text-xl font-semibold">Your tournaments</h1>
         {tournaments.length === 0 ? (
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-muted">
             You haven&apos;t created any tournaments yet.
           </p>
         ) : (
@@ -37,10 +37,10 @@ export default async function OrganizerPage() {
               <li key={t.id}>
                 <Link
                   href={`/organizer/${t.slug}`}
-                  className="flex flex-col gap-1 rounded-md border border-slate-200 px-4 py-3 hover:border-slate-400 dark:border-slate-700 dark:hover:border-slate-500"
+                  className="flex flex-col gap-1 rounded-md border border-border px-4 py-3 hover:border-primary"
                 >
                   <span className="font-medium">{t.name}</span>
-                  <span className="text-sm text-slate-600 dark:text-slate-400">
+                  <span className="text-sm text-muted">
                     {t.venue} · {formatDate(t.startDate)} – {formatDate(t.endDate)} ·{" "}
                     {t._count.events} event{t._count.events === 1 ? "" : "s"}
                   </span>
@@ -51,12 +51,12 @@ export default async function OrganizerPage() {
         )}
       </section>
 
-      <section className="flex flex-col gap-3 border-t border-slate-200 pt-6 dark:border-slate-800">
+      <section className="flex flex-col gap-3 border-t border-border pt-6">
         <h2 className="text-lg font-semibold">Create a tournament</h2>
         {canCreate ? (
           <CreateTournamentForm />
         ) : (
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-muted">
             Only approved organizers can create tournaments. Ask the tournament-manager administrator for access.
           </p>
         )}

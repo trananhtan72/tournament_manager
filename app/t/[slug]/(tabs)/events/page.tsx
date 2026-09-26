@@ -24,7 +24,7 @@ export default async function EventsTab({ params }: PageProps<"/t/[slug]/events"
   if (!tournament) notFound();
 
   if (tournament.events.length === 0) {
-    return <p className="text-sm text-slate-500">No events have been added yet.</p>;
+    return <p className="text-sm text-muted">No events have been added yet.</p>;
   }
 
   return (

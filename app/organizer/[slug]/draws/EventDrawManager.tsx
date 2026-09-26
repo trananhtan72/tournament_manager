@@ -85,22 +85,22 @@ export function EventDrawManager({ event, tournamentName }: { event: DrawEvent; 
   return (
     <section
       id={`draw-${event.id}`}
-      className="flex scroll-mt-4 flex-col gap-4 rounded-lg border border-slate-200 p-4 dark:border-slate-700"
+      className="flex scroll-mt-4 flex-col gap-4 rounded-lg border border-border p-4"
     >
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
           <h2 className="text-lg font-semibold">{event.name}</h2>
-          <p className="text-sm text-slate-600 dark:text-slate-400">
+          <p className="text-sm text-muted">
             {drawFormatLabels[event.drawFormat]} · {describeEventGameFormats(event)} · {confirmed.length}{" "}
             {confirmed.length === 1 ? "entry" : "entries"}
           </p>
         </div>
         {event.drawPublished ? (
-          <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-medium text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200">
+          <span className="rounded-full bg-success/15 px-3 py-1 text-xs font-medium text-success">
             Published
           </span>
         ) : (
-          <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+          <span className="rounded-full bg-surface-muted px-3 py-1 text-xs font-medium text-muted">
             Not published
           </span>
         )}
@@ -109,7 +109,7 @@ export function EventDrawManager({ event, tournamentName }: { event: DrawEvent; 
         {event.drawFormat === "SINGLE_ELIMINATION" && (
           <>
             {bracketMatches.length === 0 ? (
-              <p className="text-sm text-slate-500">
+              <p className="text-sm text-muted">
                 No draw yet. Set seeds on the Manage entries tab if you like, then generate the draw once your
                 confirmed entries are set (4–64 required).
               </p>
@@ -119,7 +119,7 @@ export function EventDrawManager({ event, tournamentName }: { event: DrawEvent; 
                   <h1 className="text-xl font-semibold">
                     {tournamentName} — {event.name}
                   </h1>
-                  <p className="text-sm text-slate-600">
+                  <p className="text-sm text-muted">
                     Draw format: {drawFormatLabels[event.drawFormat]}
                   </p>
                 </div>
@@ -154,10 +154,10 @@ export function EventDrawManager({ event, tournamentName }: { event: DrawEvent; 
 
             {swapCandidates.length >= 2 && (
               <div className="flex flex-col gap-2 print:hidden">
-                <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                <h3 className="text-sm font-semibold text-text">
                   Swap two entries
                 </h3>
-                <p className="text-sm text-slate-500">
+                <p className="text-sm text-muted">
                   Fixes a placement without regenerating the whole draw. Only round-1 slots can be
                   swapped.
                 </p>
@@ -174,7 +174,7 @@ export function EventDrawManager({ event, tournamentName }: { event: DrawEvent; 
         {event.drawFormat === "ROUND_ROBIN" && (
           <>
             {event.matches.length === 0 ? (
-              <p className="text-sm text-slate-500">
+              <p className="text-sm text-muted">
                 No draw yet. Generate the draw once your confirmed entries are set (3+ required).
               </p>
             ) : (
@@ -210,7 +210,7 @@ export function EventDrawManager({ event, tournamentName }: { event: DrawEvent; 
         {event.drawFormat === "POOLS_KNOCKOUT" && (
           <>
             {poolsView.length === 0 ? (
-              <p className="text-sm text-slate-500">
+              <p className="text-sm text-muted">
                 No pools yet. Generate the draw once your confirmed entries are set (3+ required) —
                 pools of 3-5 are formed automatically.
               </p>
@@ -218,7 +218,7 @@ export function EventDrawManager({ event, tournamentName }: { event: DrawEvent; 
               <div className="flex flex-col gap-6">
                 {poolsView.map((pool) => (
                   <div key={pool.id} className="flex flex-col gap-2">
-                    <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                    <h3 className="text-sm font-semibold text-text">
                       {pool.name} {pool.complete && "— complete"}
                     </h3>
                     <StandingsTable rows={pool.standings} />
@@ -253,10 +253,10 @@ export function EventDrawManager({ event, tournamentName }: { event: DrawEvent; 
 
             {poolSwapCandidates.length >= 2 && !knockoutGenerated && (
               <div className="flex flex-col gap-2">
-                <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                <h3 className="text-sm font-semibold text-text">
                   Swap two entries between pools
                 </h3>
-                <p className="text-sm text-slate-500">
+                <p className="text-sm text-muted">
                   Fixes a pool assignment without regenerating everything.
                 </p>
                 <SwapPoolEntriesForm
@@ -269,10 +269,10 @@ export function EventDrawManager({ event, tournamentName }: { event: DrawEvent; 
 
             {poolSwapCandidates.length > 0 && poolsView.length >= 2 && !knockoutGenerated && (
               <div className="flex flex-col gap-2">
-                <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                <h3 className="text-sm font-semibold text-text">
                   Move an entry to a different pool
                 </h3>
-                <p className="text-sm text-slate-500">
+                <p className="text-sm text-muted">
                   For when pools need to end up an uneven size instead of a like-for-like swap.
                 </p>
                 <MovePoolEntryForm
@@ -285,14 +285,14 @@ export function EventDrawManager({ event, tournamentName }: { event: DrawEvent; 
             )}
 
             {poolsView.length > 0 && !knockoutGenerated && (
-              <div className="flex flex-col gap-2 border-t border-slate-200 pt-4 dark:border-slate-800">
-                <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+              <div className="flex flex-col gap-2 border-t border-border pt-4">
+                <h3 className="text-sm font-semibold text-text">
                   Knockout stage
                 </h3>
                 {allPoolsComplete ? (
                   <GenerateKnockoutForm eventId={event.id} />
                 ) : (
-                  <p className="text-sm text-slate-500">
+                  <p className="text-sm text-muted">
                     Finish every pool match before generating the knockout stage.
                   </p>
                 )}
@@ -300,8 +300,8 @@ export function EventDrawManager({ event, tournamentName }: { event: DrawEvent; 
             )}
 
             {knockoutGenerated && (
-              <div className="flex flex-col gap-4 border-t border-slate-200 pt-4 dark:border-slate-800">
-                <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+              <div className="flex flex-col gap-4 border-t border-border pt-4">
+                <h3 className="text-sm font-semibold text-text">
                   Knockout stage
                 </h3>
                 <div id={`print-knockout-${event.id}`}>
@@ -317,7 +317,7 @@ export function EventDrawManager({ event, tournamentName }: { event: DrawEvent; 
                 </div>
                 {swapCandidates.length >= 2 && (
                   <div className="flex flex-col gap-2 print:hidden">
-                    <h4 className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                    <h4 className="text-sm font-semibold text-text">
                       Swap two knockout entries
                     </h4>
                     <SwapEntriesForm

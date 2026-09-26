@@ -26,14 +26,20 @@ export default async function LiveScoringPage({
 
   const back = `/organizer/${slug}/matches`;
   return (
-    <LiveMatchScreen
-      match={match}
-      backHref={back}
-      backLabel="Match center"
-      manualHref={back}
-      resultMessage="This match already has a result. Edit it from the Match center."
-      viewer="organizer"
-      referees={referees}
-    />
+    // Narrower than the rest of the console on purpose: this is a live,
+    // tap-to-score screen (the same one a referee uses on their phone), not
+    // an overview — letting it stretch to the console's full width would
+    // just inflate the score buttons and the space between them.
+    <div className="mx-auto w-full max-w-2xl">
+      <LiveMatchScreen
+        match={match}
+        backHref={back}
+        backLabel="Match center"
+        manualHref={back}
+        resultMessage="This match already has a result. Edit it from the Match center."
+        viewer="organizer"
+        referees={referees}
+      />
+    </div>
   );
 }

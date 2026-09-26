@@ -103,12 +103,12 @@ export function NotificationBell({
         ref={buttonRef}
         type="button"
         aria-label={unreadCount > 0 ? `Notifications (${unreadCount} unread)` : "Notifications"}
-        className="relative inline-flex items-center hover:text-slate-600 dark:hover:text-slate-300"
+        className="relative inline-flex items-center hover:text-muted"
         onClick={toggleOpen}
       >
         <BellIcon className="h-5 w-5" />
         {unreadCount > 0 && (
-          <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-medium text-white">
+          <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-error px-1 text-[10px] font-medium text-error-foreground">
             {unreadCount > 9 ? "9+" : unreadCount}
           </span>
         )}
@@ -117,14 +117,14 @@ export function NotificationBell({
       {isOpen && popupPosition && (
         <div
           style={{ position: "fixed", top: popupPosition.top, left: popupPosition.left, width: POPUP_WIDTH }}
-          className="z-50 max-w-[calc(100vw-1rem)] rounded-md border border-slate-200 bg-white text-left shadow-lg dark:border-slate-700 dark:bg-slate-900"
+          className="z-50 max-w-[calc(100vw-1rem)] rounded-md border border-border bg-surface text-left shadow-lg"
         >
-          <div className="flex items-center justify-between border-b border-slate-100 px-3 py-2 dark:border-slate-800">
-            <span className="text-sm font-semibold text-slate-900 dark:text-white">Notifications</span>
+          <div className="flex items-center justify-between border-b border-border px-3 py-2">
+            <span className="text-sm font-semibold text-text">Notifications</span>
             {unreadCount > 0 && (
               <button
                 type="button"
-                className="text-xs text-slate-500 hover:underline"
+                className="text-xs text-muted hover:underline"
                 onClick={handleMarkAllRead}
               >
                 Mark all as read
@@ -134,20 +134,20 @@ export function NotificationBell({
 
           <div className="max-h-80 overflow-y-auto">
             {notifications.length === 0 ? (
-              <p className="px-3 py-4 text-sm text-slate-500">No notifications yet.</p>
+              <p className="px-3 py-4 text-sm text-muted">No notifications yet.</p>
             ) : (
               <ul className="flex flex-col">
                 {notifications.map((n) => (
-                  <li key={n.id} className="border-b border-slate-100 last:border-b-0 dark:border-slate-800">
+                  <li key={n.id} className="border-b border-border last:border-b-0">
                     <button
                       type="button"
                       onClick={() => handleNotificationClick(n)}
-                      className={`flex w-full flex-col gap-0.5 px-3 py-2 text-left text-sm hover:bg-slate-50 dark:hover:bg-slate-800 ${
-                        n.read ? "" : "bg-slate-50 dark:bg-slate-800"
+                      className={`flex w-full flex-col gap-0.5 px-3 py-2 text-left text-sm hover:bg-surface-muted ${
+                        n.read ? "" : "bg-surface-muted"
                       }`}
                     >
-                      <span className="text-slate-900 dark:text-white">{n.message}</span>
-                      <span className="text-xs text-slate-500">{formatDateTime(n.createdAt)}</span>
+                      <span className="text-text">{n.message}</span>
+                      <span className="text-xs text-muted">{formatDateTime(n.createdAt)}</span>
                     </button>
                   </li>
                 ))}
@@ -158,7 +158,7 @@ export function NotificationBell({
           <Link
             href="/notifications"
             onClick={() => setIsOpen(false)}
-            className="block border-t border-slate-100 px-3 py-2 text-center text-xs text-slate-500 hover:underline dark:border-slate-800"
+            className="block border-t border-border px-3 py-2 text-center text-xs text-muted hover:underline"
           >
             View all
           </Link>

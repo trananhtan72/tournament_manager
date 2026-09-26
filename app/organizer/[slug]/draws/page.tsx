@@ -22,7 +22,7 @@ export default async function OrganizerDrawsPage({
   if (!tournament) notFound();
 
   if (tournament.events.length === 0) {
-    return <p className="text-sm text-slate-500">There are no events yet, so there are no draws.</p>;
+    return <p className="text-sm text-muted">There are no events yet, so there are no draws.</p>;
   }
 
   return (

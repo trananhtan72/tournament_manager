@@ -16,10 +16,10 @@ export default async function TournamentTabsLayout({
   if (!tournament) notFound();
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="mx-auto flex w-full max-w-4xl flex-col gap-6">
       <div>
         <h1 className="text-2xl font-semibold">{tournament.name}</h1>
-        <p className="text-slate-600 dark:text-slate-400">
+        <p className="text-muted">
           {tournament.venue} · {formatDate(tournament.startDate)} – {formatDate(tournament.endDate)}
         </p>
       </div>

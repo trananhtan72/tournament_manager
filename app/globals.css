@@ -1,34 +1,132 @@
 @import "tailwindcss";
 
+/*
+ * Design tokens — "Match Point" direction (see the visual-direction canvas
+ * shared with the team: coral + teal accents, soft rounded surfaces, Sora).
+ *
+ * Every color a component needs is one of the names below (surface, text,
+ * muted, border, primary, accent, success, warning, error — each with a
+ * `-foreground` counterpart for text/icons placed on top of it). Components
+ * should reach for `bg-primary`, `text-muted`, `border-border`, etc. instead
+ * of a raw Tailwind color like `slate-500` — that's what makes a future
+ * palette change a one-file edit instead of a repo-wide search-and-replace.
+ * A light-tint badge (a pending/warning pill, say) is that same token at
+ * reduced opacity: `bg-warning/12 text-warning`, no separate "subtle" token
+ * needed.
+ *
+ * Light values live on :root; the dark-mode block below redefines the same
+ * names (never introduces new ones), so `dark:` variants on individual
+ * elements are no longer needed for color — the token itself adapts. The
+ * court scoreboard (app/t/[slug]/court/) intentionally stays outside this
+ * system: it's a fixed black TV/kiosk display, not a themed app surface.
+ */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --surface: #ffffff;
+  --surface-muted: #f4f4f6;
+  --text: #1b1b23;
+  --muted: #63636d;
+  --border: #e4e4e9;
+
+  --primary: #e14b27;
+  --primary-foreground: #ffffff;
+  --accent: #0f766e;
+  --accent-foreground: #ffffff;
+  --success: #15803d;
+  --success-foreground: #ffffff;
+  --warning: #92400e;
+  --warning-foreground: #ffffff;
+  --error: #b91c1c;
+  --error-foreground: #ffffff;
+
+  /* Kept as aliases so anything still reading the old generic names works. */
+  --background: var(--surface);
+  --foreground: var(--text);
 }
 
 @theme inline {
+  --color-surface: var(--surface);
+  --color-surface-muted: var(--surface-muted);
+  --color-text: var(--text);
+  --color-muted: var(--muted);
+  --color-border: var(--border);
+
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-error: var(--error);
+  --color-error-foreground: var(--error-foreground);
+
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
+
+  --font-sans: var(--font-sora);
   --font-mono: var(--font-geist-mono);
+
+  /* Redefining Tailwind's own radius scale (rather than a one-off custom
+     property) means the ~60 existing rounded-md/-lg/-xl call sites across
+     the app pick up the softer "Match Point" corners with no per-file
+     changes — only a genuinely new radius value needs a component edit. */
+  --radius: 0.5rem;
+  --radius-md: 0.875rem;
+  --radius-lg: 1.125rem;
+  --radius-xl: 1.5rem;
 }
 
+/* Dark mode: the same token names, brightened where a deep "on-white" shade
+   (primary/accent/success/warning/error) would go muddy on a dark surface,
+   with each color's own -foreground darkened to match. */
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --surface: #17171c;
+    --surface-muted: #202027;
+    --text: #f2f2f5;
+    --muted: #9a9aa6;
+    --border: #2c2c34;
+
+    --primary: #ff7a50;
+    --primary-foreground: #2a0f06;
+    --accent: #2dd4bf;
+    --accent-foreground: #042f2b;
+    --success: #34d399;
+    --success-foreground: #052e13;
+    --warning: #fbbf24;
+    --warning-foreground: #451a03;
+    --error: #f87171;
+    --error-foreground: #450a0a;
   }
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
 }
 
 @media print {
+  /* Printing a draw/bracket always uses the light values, regardless of the
+     viewer's OS theme — same reasoning as the original --background/
+     --foreground override this replaces. */
   :root {
-    --background: #ffffff;
-    --foreground: #171717;
+    --surface: #ffffff;
+    --surface-muted: #f4f4f6;
+    --text: #1b1b23;
+    --muted: #63636d;
+    --border: #e4e4e9;
+    --primary: #e14b27;
+    --primary-foreground: #ffffff;
+    --accent: #0f766e;
+    --accent-foreground: #ffffff;
+    --success: #15803d;
+    --success-foreground: #ffffff;
+    --warning: #92400e;
+    --warning-foreground: #ffffff;
+    --error: #b91c1c;
+    --error-foreground: #ffffff;
   }
 
   body * {

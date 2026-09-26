@@ -26,29 +26,29 @@ export default async function AccountPage() {
   ].filter((b): b is string => b !== null);
 
   return (
-    <div className="flex max-w-md flex-col gap-8">
+    <div className="mx-auto flex w-full max-w-md flex-col gap-8">
       <h1 className="text-xl font-semibold">My account</h1>
 
-      <section className="flex flex-col gap-4 rounded-md border border-slate-200 p-4 dark:border-slate-700">
+      <section className="flex flex-col gap-4 rounded-md border border-border p-4">
         <div>
-          <p className="text-xs uppercase tracking-wide text-slate-500">Name</p>
+          <p className="text-xs uppercase tracking-wide text-muted">Name</p>
           <p className="text-base">{user.name}</p>
         </div>
         <div>
-          <p className="text-xs uppercase tracking-wide text-slate-500">Email</p>
+          <p className="text-xs uppercase tracking-wide text-muted">Email</p>
           <p className="break-all text-base">{user.email}</p>
         </div>
         <div>
-          <p className="text-xs uppercase tracking-wide text-slate-500">Member since</p>
+          <p className="text-xs uppercase tracking-wide text-muted">Member since</p>
           <p className="text-base">{formatDate(user.createdAt)}</p>
         </div>
         <div>
-          <p className="text-xs uppercase tracking-wide text-slate-500">Access</p>
+          <p className="text-xs uppercase tracking-wide text-muted">Access</p>
           <div className="mt-1 flex flex-wrap gap-2" data-testid="account-badges">
             {badges.map((b) => (
               <span
                 key={b}
-                className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700 dark:bg-slate-800 dark:text-slate-300"
+                className="rounded-full bg-surface-muted px-3 py-1 text-xs font-medium text-text"
               >
                 {b}
               </span>
@@ -57,7 +57,7 @@ export default async function AccountPage() {
         </div>
 
         {!canCreateTournaments(user.role) && (
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-muted">
             {tournamentCount > 0
               ? `You can still manage the ${tournamentCount} tournament${tournamentCount === 1 ? "" : "s"} you've already created, from the Organizer console.`
               : "Ask the tournament-manager administrator for organizer access to create tournaments."}

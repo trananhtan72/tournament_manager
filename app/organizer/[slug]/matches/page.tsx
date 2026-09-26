@@ -2,7 +2,6 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { requireOrganizerId } from "@/lib/organizerAccess";
-import { MatchCard } from "@/components/Bracket";
 import { toBracketMatchView, toScorable } from "@/lib/matchView";
 import { isLiveMatch, loadLiveStates } from "@/lib/liveMatches";
 import { courtNumbers } from "@/lib/tournament/courts";
@@ -16,7 +15,63 @@ import { EventFilter } from "@/app/organizer/[slug]/matches/EventFilter";
 // Shared by the "Live match score" link and the "Enter manually" summary
 // below, so the two read as one pair of equal-weight options.
 const scoreOptionClass =
-  "inline-flex items-center justify-center rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800";
+  "inline-flex items-center justify-center rounded-md border border-border px-3 py-1.5 text-sm font-medium text-text hover:bg-surface-muted";
+
+/**
+ * Who's playing, plain and simple — names first, a compact score only where
+ * there is one. Every match in this list gets exactly this line regardless
+ * of its state (not started, live, played, or still waiting on earlier
+ * results), so scanning the list always tells you who's involved without
+ * opening anything.
+ */
+function MatchSummary({
+  entry1Label,
+  entry2Label,
+  winnerLabel,
+  isBye,
+  games,
+  liveScore,
+  liveTag,
+}: {
+  entry1Label: string | null;
+  entry2Label: string | null;
+  winnerLabel: string | null;
+  isBye: boolean;
+  /** Final per-game scores, for a played match; omit for anything else. */
+  games?: { entry1Score: number; entry2Score: number }[];
+  /** The game in progress, for a live match. */
+  liveScore?: { score1: number; score2: number } | null;
+  liveTag?: string | null;
+}) {
+  const name1 = entry1Label ?? "TBD";
+  const name2 = isBye ? "Bye" : (entry2Label ?? "TBD");
+  const isWinner1 = winnerLabel !== null && winnerLabel === entry1Label;
+  const isWinner2 = winnerLabel !== null && winnerLabel === entry2Label;
+  const nameClass = (isWinner: boolean, isLoser: boolean) =>
+    isWinner ? "font-semibold text-text" : isLoser ? "text-muted" : "font-medium text-text";
+  const scoreText =
+    !liveScore && games && games.length > 0 ? games.map((g) => `${g.entry1Score}–${g.entry2Score}`).join(", ") : null;
+
+  return (
+    <p className="text-[0.95rem]">
+      {liveTag && (
+        <span className="mr-2 inline-flex items-center gap-1.5 text-xs font-semibold text-accent">
+          <span className="h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-accent" aria-hidden />
+          {liveTag}
+        </span>
+      )}
+      <span className={nameClass(isWinner1, isWinner2)}>{name1}</span>
+      <span className="mx-1.5 text-muted">vs</span>
+      <span className={nameClass(isWinner2, isWinner1)}>{name2}</span>
+      {liveScore && (
+        <span className="ml-2 tabular-nums text-accent">
+          {liveScore.score1}–{liveScore.score2}
+        </span>
+      )}
+      {scoreText && <span className="ml-2 text-sm tabular-nums text-muted">{scoreText}</span>}
+    </p>
+  );
+}
 
 export default async function MatchCenterPage({
   params,
@@ -111,17 +166,31 @@ export default async function MatchCenterPage({
     const ready = match.entry1 !== null && match.entry2 !== null;
     const live = liveStates.get(match.id) ?? null;
     const liveHref = `/organizer/${slug}/matches/${match.id}`;
+    const view = toBracketMatchView(match, format, { showSchedule: false });
+    const currentGame = live ? live.games[live.games.length - 1] : null;
+
     return (
-      <li className="flex flex-col gap-1.5">
+      <li className="flex flex-col gap-2 rounded-md border border-border px-4 py-3">
         <div className="flex flex-wrap items-baseline justify-between gap-x-3 text-xs">
-          <span className="font-medium text-slate-700 dark:text-slate-300">
+          <span className="font-medium text-text">
             {eventName} · {stage}
           </span>
-          <span className="text-slate-500">{formatScheduleLabel(match) ?? "Not scheduled"}</span>
+          <span className="text-muted">{formatScheduleLabel(match) ?? "Not scheduled"}</span>
         </div>
+
+        <MatchSummary
+          entry1Label={view.entry1Label}
+          entry2Label={view.entry2Label}
+          winnerLabel={view.winnerLabel}
+          isBye={view.isBye}
+          games={match.status !== null ? view.games : undefined}
+          liveScore={currentGame ? { score1: currentGame.score1, score2: currentGame.score2 } : null}
+          liveTag={live ? `Live · Game ${live.currentGame}` : null}
+        />
+
         {match.status === null ? (
           <details className="text-xs">
-            <summary className="cursor-pointer text-slate-600 dark:text-slate-400">
+            <summary className="cursor-pointer text-muted">
               Referee: {refereeName(match.refereeId) ?? "none"}
             </summary>
             <div className="pt-2">
@@ -129,22 +198,22 @@ export default async function MatchCenterPage({
             </div>
           </details>
         ) : (
-          refereeName(match.refereeId) && <span className="text-xs text-slate-500">Referee: {refereeName(match.refereeId)}</span>
+          refereeName(match.refereeId) && <span className="text-xs text-muted">Referee: {refereeName(match.refereeId)}</span>
         )}
+
         {live ? (
           <div className="flex flex-col gap-2">
-            <MatchCard match={toBracketMatchView(match, format, { showSchedule: false, live })} />
             <div className="flex flex-wrap items-center gap-3">
               <Link
                 href={liveHref}
-                className="inline-flex items-center justify-center rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-500"
+                className="inline-flex items-center justify-center rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-foreground hover:bg-accent/90"
               >
                 Continue live scoring
               </Link>
             </div>
             {ready && (
               <details className="text-sm">
-                <summary className="cursor-pointer text-slate-600 underline dark:text-slate-400">
+                <summary className="cursor-pointer text-muted underline">
                   Enter the result manually instead
                 </summary>
                 <div className="pt-2">
@@ -184,10 +253,7 @@ export default async function MatchCenterPage({
             />
           )
         ) : (
-          <div className="flex flex-wrap items-center gap-3">
-            <MatchCard match={toBracketMatchView(match, format, { showSchedule: false })} />
-            <span className="text-xs text-slate-500">Waiting for earlier results</span>
-          </div>
+          <span className="text-xs text-muted">Waiting for earlier results</span>
         )}
       </li>
     );
@@ -196,27 +262,27 @@ export default async function MatchCenterPage({
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm text-slate-600 dark:text-slate-400">
+        <p className="text-sm text-muted">
           Enter results as matches finish. Set times and courts on the{" "}
           <Link href={`/organizer/${slug}/schedule`} className="underline">
             schedule page
           </Link>
           .
         </p>
-        {eventChoices.length > 1 && <EventFilter events={eventChoices} />}
+        {eventChoices.length > 0 && <EventFilter events={eventChoices} />}
       </div>
 
-      <details className="rounded-md border border-slate-200 px-4 py-2 text-sm dark:border-slate-700">
+      <details className="rounded-md border border-border px-4 py-2 text-sm">
         <summary className="cursor-pointer font-medium">Court scoreboard screens</summary>
         <div className="flex flex-col gap-3 pt-3">
-          <p className="text-slate-600 dark:text-slate-400">
+          <p className="text-muted">
             Each court has its own full-screen scoreboard for a TV or an iPad at the court: it shows that court&apos;s live
             score, then the final score, then what&apos;s up next. Open a court&apos;s link in the screen&apos;s browser
             (iPad: use landscape, then Share → Add to Home Screen for full screen).
           </p>
-          <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
             {courtNumbers(tournament.courtCount).map((n) => (
-              <li key={n} className="flex items-center justify-between gap-3 rounded-md border border-slate-200 px-3 py-1.5 dark:border-slate-700">
+              <li key={n} className="flex items-center justify-between gap-3 rounded-md border border-border px-3 py-1.5">
                 <a href={`/t/${slug}/court/${n}`} target="_blank" rel="noopener" className="underline">
                   Court {n} ↗
                 </a>
@@ -228,7 +294,7 @@ export default async function MatchCenterPage({
       </details>
 
       {draftDraws > 0 && (
-        <p className="rounded-md border border-slate-200 px-4 py-2 text-sm text-slate-600 dark:border-slate-700 dark:text-slate-400">
+        <p className="rounded-md border border-border px-4 py-2 text-sm text-muted">
           {draftDraws} {draftDraws === 1 ? "event has" : "events have"} a draw that isn&apos;t published yet, so
           {draftDraws === 1 ? " its" : " their"} matches aren&apos;t listed here.{" "}
           <Link href={`/organizer/${slug}/draws`} className="underline">
@@ -243,7 +309,7 @@ export default async function MatchCenterPage({
             Upcoming matches ({upcoming.length})
           </h2>
           {upcoming.length === 0 ? (
-            <p className="text-sm text-slate-500">
+            <p className="text-sm text-muted">
               {items.length === 0
                 ? "No published draws yet."
                 : selectedEventId
@@ -254,7 +320,7 @@ export default async function MatchCenterPage({
             <>
               {upcomingLive.length > 0 && (
                 <div className="flex flex-col gap-3">
-                  <h3 className="text-sm font-semibold text-red-600 dark:text-red-400">Live now</h3>
+                  <h3 className="text-sm font-semibold text-accent">Live now</h3>
                   <ul className="flex flex-col gap-4">
                     {upcomingLive.map((item) => (
                       <MatchItem key={item.match.id} item={item} />
@@ -272,7 +338,7 @@ export default async function MatchCenterPage({
               {upcomingUntimed.length > 0 && (
                 <div className="flex flex-col gap-3">
                   {(upcomingTimed.length > 0 || upcomingLive.length > 0) && (
-                    <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300">Not scheduled yet</h3>
+                    <h3 className="text-sm font-semibold text-text">Not scheduled yet</h3>
                   )}
                   <ul className="flex flex-col gap-4">
                     {upcomingUntimed.map((item) => (
@@ -290,7 +356,7 @@ export default async function MatchCenterPage({
             Played matches ({played.length})
           </h2>
           {played.length === 0 ? (
-            <p className="text-sm text-slate-500">
+            <p className="text-sm text-muted">
               {selectedEventId ? "No matches played yet in this event." : "No matches have been played yet."}
             </p>
           ) : (

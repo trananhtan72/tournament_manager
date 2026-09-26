@@ -51,7 +51,7 @@ export function AddRefereeForm({ tournamentId }: { tournamentId: string }) {
         </Button>
       </div>
       <FormError message={error} />
-      {added && !error && <p className="text-sm text-emerald-600 dark:text-emerald-400">Added {added}. They&apos;ve been notified.</p>}
+      {added && !error && <p className="text-sm text-success">Added {added}. They&apos;ve been notified.</p>}
     </form>
   );
 }

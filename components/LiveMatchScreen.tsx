@@ -77,10 +77,10 @@ export function LiveMatchScreen({
           ← {backLabel}
         </Link>
         <h2 className="mt-2 text-lg font-semibold">
-          {match.entry1 ? entryDisplayName(match.entry1) : "TBD"} <span className="text-slate-500">vs</span>{" "}
+          {match.entry1 ? entryDisplayName(match.entry1) : "TBD"} <span className="text-muted">vs</span>{" "}
           {match.entry2 ? entryDisplayName(match.entry2) : "TBD"}
         </h2>
-        <p className="text-sm text-slate-600 dark:text-slate-400">
+        <p className="text-sm text-muted">
           {match.event.name} · {stage} · {describeGameFormat(format)}
           {schedule ? ` · ${schedule}` : ""}
         </p>
@@ -98,7 +98,7 @@ export function LiveMatchScreen({
       )}
 
       {cannotScore ? (
-        <p className="rounded-md border border-slate-200 px-4 py-3 text-sm text-slate-600 dark:border-slate-700 dark:text-slate-400">
+        <p className="rounded-md border border-border px-4 py-3 text-sm text-muted">
           {cannotScore}
         </p>
       ) : match.liveStartedAt === null || match.firstServer === null ? (

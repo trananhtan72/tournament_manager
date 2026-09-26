@@ -34,7 +34,7 @@ function renderNode(node: RegulationsNode, key: number): ReactNode {
     case "hardBreak":
       return <br key={key} />;
     case "horizontalRule":
-      return <hr key={key} className="border-slate-200 dark:border-slate-700" />;
+      return <hr key={key} className="border-border" />;
     case "paragraph":
       return (
         <p key={key} className="min-h-[1lh]">
@@ -71,7 +71,7 @@ function renderNode(node: RegulationsNode, key: number): ReactNode {
       );
     case "blockquote":
       return (
-        <blockquote key={key} className="border-l-4 border-slate-300 pl-4 text-slate-600 dark:border-slate-600 dark:text-slate-400">
+        <blockquote key={key} className="border-l-4 border-border pl-4 text-muted">
           {renderNodes(node.content)}
         </blockquote>
       );

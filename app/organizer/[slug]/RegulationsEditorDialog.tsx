@@ -9,7 +9,7 @@ import type { RegulationsDoc } from "@/lib/regulations";
 // out of the page's initial bundle.
 const RegulationsEditor = dynamic(
   () => import("@/app/organizer/[slug]/RegulationsEditor").then((m) => m.RegulationsEditor),
-  { ssr: false, loading: () => <p className="text-sm text-slate-500">Loading editor…</p> },
+  { ssr: false, loading: () => <p className="text-sm text-muted">Loading editor…</p> },
 );
 
 export function RegulationsEditorDialog({
@@ -40,9 +40,9 @@ export function RegulationsEditorDialog({
         ref={dialogRef}
         aria-label="Regulations editor"
         onClose={() => setOpen(false)}
-        className="m-auto w-[min(48rem,calc(100vw-2rem))] rounded-lg border border-slate-200 bg-white p-0 text-slate-900 shadow-xl backdrop:bg-black/50 dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+        className="m-auto w-[min(48rem,calc(100vw-2rem))] rounded-lg border border-border bg-surface p-0 text-text shadow-xl backdrop:bg-black/50"
       >
-        <div className="border-b border-slate-200 px-5 py-3 dark:border-slate-700">
+        <div className="border-b border-border px-5 py-3">
           <h2 className="text-base font-semibold">Tournament regulations</h2>
         </div>
         <div className="px-5 py-4">

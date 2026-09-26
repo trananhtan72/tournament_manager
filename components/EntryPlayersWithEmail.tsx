@@ -12,7 +12,7 @@ export function EntryPlayersWithEmail({
         return (
           <li key={p.id} className="flex flex-col text-sm">
             <span className="font-medium">{playerName(p)}</span>
-            {email && <span className="break-all text-slate-600 dark:text-slate-400">{email}</span>}
+            {email && <span className="break-all text-muted">{email}</span>}
           </li>
         );
       })}

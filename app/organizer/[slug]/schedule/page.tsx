@@ -85,52 +85,52 @@ export default async function OrganizerSchedulePage({
 
       <div className="flex flex-col gap-1">
         <h1 className="text-xl font-semibold">Match schedule</h1>
-        <p className="text-sm text-slate-600 dark:text-slate-400">
+        <p className="text-sm text-muted">
           Give each match a start time and, if you like, a court. Times are local to the venue
           ({formatDate(tournament.startDate)} – {formatDate(tournament.endDate)}). Players see the
           schedule once an event&apos;s draw is published.
         </p>
         {allMatches.length > 0 && (
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-muted">
             {scheduledCount} of {allMatches.length} matches scheduled.
           </p>
         )}
       </div>
 
       {events.length === 0 ? (
-        <p className="text-sm text-slate-500">
+        <p className="text-sm text-muted">
           There are no matches to schedule yet. Generate a draw for an event first.
         </p>
       ) : (
         events.map(({ event, groups }) => (
-          <section key={event.id} className="flex flex-col gap-4 border-t border-slate-200 pt-6 dark:border-slate-800">
+          <section key={event.id} className="flex flex-col gap-4 border-t border-border pt-6">
             <div className="flex flex-wrap items-center gap-3">
               <h2 className="text-lg font-semibold">{event.name}</h2>
               {!event.drawPublished && (
-                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                <span className="rounded-full bg-surface-muted px-2 py-0.5 text-xs font-medium text-muted">
                   Draw not published — hidden from players
                 </span>
               )}
             </div>
             {groups.map((group) => (
               <div key={group.title} className="flex flex-col gap-2">
-                <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300">{group.title}</h3>
+                <h3 className="text-sm font-semibold text-text">{group.title}</h3>
                 <ul className="flex flex-col gap-2">
                   {group.matches.map((match) => (
                     <li
                       key={match.id}
-                      className="flex flex-col gap-2 rounded-md border border-slate-200 px-4 py-3 md:flex-row md:items-center md:justify-between dark:border-slate-700"
+                      className="flex flex-col gap-2 rounded-md border border-border px-4 py-3 md:flex-row md:items-center md:justify-between"
                     >
                       <div className="min-w-0 text-sm">
                         <span className="font-medium">
                           {match.entry1 ? entryDisplayName(match.entry1) : "TBD"}
                         </span>{" "}
-                        <span className="text-slate-500">vs</span>{" "}
+                        <span className="text-muted">vs</span>{" "}
                         <span className="font-medium">
                           {match.entry2 ? entryDisplayName(match.entry2) : "TBD"}
                         </span>
                         {match.status && (
-                          <span className="ml-2 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200">
+                          <span className="ml-2 rounded-full bg-success/15 px-2 py-0.5 text-xs font-medium text-success">
                             Played
                           </span>
                         )}
@@ -152,7 +152,7 @@ export default async function OrganizerSchedulePage({
                           />
                         ) : (
                           match.refereeId && (
-                            <p className="text-xs text-slate-500">
+                            <p className="text-xs text-muted">
                               Referee: {refereeChoices.find((r) => r.id === match.refereeId)?.name ?? "—"}
                             </p>
                           )

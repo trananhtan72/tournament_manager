@@ -1,12 +1,9 @@
 import { type ComponentProps } from "react";
 
 const variantClasses = {
-  primary:
-    "bg-slate-900 text-white hover:bg-slate-700 disabled:bg-slate-400 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-200",
-  secondary:
-    "bg-transparent text-slate-900 border border-slate-300 hover:bg-slate-100 dark:text-white dark:border-slate-600 dark:hover:bg-slate-800",
-  danger:
-    "bg-red-600 text-white hover:bg-red-500 disabled:bg-red-300",
+  primary: "bg-primary text-primary-foreground hover:bg-primary/90 disabled:bg-primary/40",
+  secondary: "bg-transparent text-text border border-border hover:bg-surface-muted",
+  danger: "bg-error text-error-foreground hover:bg-error/90 disabled:bg-error/40",
 } as const;
 
 type ButtonProps = ComponentProps<"button"> & {

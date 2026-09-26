@@ -57,15 +57,15 @@ function MyMatchItem({ row, emptyTimeLabel }: { row: MyMatchRow; emptyTimeLabel:
   const { match, stage, view } = row;
   const timeLabel = (match.status !== null ? formatStartedLabel(match.startedAt) : null) ?? formatScheduleLabel(match) ?? emptyTimeLabel;
   return (
-    <li className="flex flex-col gap-2 rounded-md border border-slate-200 px-4 py-3 sm:flex-row sm:items-center sm:gap-4 dark:border-slate-700">
+    <li className="flex flex-col gap-2 rounded-md border border-border px-4 py-3 sm:flex-row sm:items-center sm:gap-4">
       <div className="flex min-w-0 flex-col gap-0.5 text-sm sm:w-64">
         <Link href={`/t/${match.event.tournament.slug}/${match.eventId}`} className="font-medium underline">
           {match.event.name}
         </Link>
-        <span className="text-slate-600 dark:text-slate-400">
+        <span className="text-muted">
           {match.event.tournament.name} · {stage}
         </span>
-        {timeLabel && <span className="text-slate-700 dark:text-slate-300">{timeLabel}</span>}
+        {timeLabel && <span className="text-text">{timeLabel}</span>}
       </div>
       <MatchCard match={view} />
     </li>
@@ -153,7 +153,7 @@ export default async function DashboardPage() {
   );
 
   return (
-    <div className="flex flex-col gap-8">
+    <div className="mx-auto flex w-full max-w-4xl flex-col gap-8">
       <AutoRefresh intervalMs={myMatchRecords.some(isLiveMatch) ? 6000 : null} />
       <h1 className="text-xl font-semibold">Dashboard</h1>
 
@@ -166,7 +166,7 @@ export default async function DashboardPage() {
               return (
                 <li
                   key={ep.id}
-                  className="flex flex-col gap-2 rounded-md border border-slate-200 px-4 py-3 dark:border-slate-700"
+                  className="flex flex-col gap-2 rounded-md border border-border px-4 py-3"
                 >
                   <div>
                     <Link
@@ -175,12 +175,12 @@ export default async function DashboardPage() {
                     >
                       {ep.entry.event.tournament.name}
                     </Link>
-                    <span className="text-sm text-slate-600 dark:text-slate-400">
+                    <span className="text-sm text-muted">
                       {" "}
                       · {ep.entry.event.name}
                     </span>
                   </div>
-                  <p className="text-sm text-slate-700 dark:text-slate-300">
+                  <p className="text-sm text-muted">
                     {initiator ? playerName(initiator) : "Someone"} invited you to be their
                     partner.
                   </p>
@@ -209,7 +209,7 @@ export default async function DashboardPage() {
       <section className="flex flex-col gap-3">
         <h2 className="text-lg font-semibold">My registrations</h2>
         {myRegistrations.length === 0 ? (
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-muted">
             You haven&apos;t registered for any events yet.
           </p>
         ) : (
@@ -220,7 +220,7 @@ export default async function DashboardPage() {
               return (
                 <li
                   key={ep.id}
-                  className="flex flex-col gap-2 rounded-md border border-slate-200 px-4 py-3 dark:border-slate-700"
+                  className="flex flex-col gap-2 rounded-md border border-border px-4 py-3"
                 >
                   <div>
                     <Link
@@ -229,16 +229,16 @@ export default async function DashboardPage() {
                     >
                       {ep.entry.event.tournament.name}
                     </Link>
-                    <span className="text-sm text-slate-600 dark:text-slate-400">
+                    <span className="text-sm text-muted">
                       {" "}
                       · {ep.entry.event.name}
                     </span>
                   </div>
-                  <p className="text-sm text-slate-700 dark:text-slate-300">
+                  <p className="text-sm text-muted">
                     {entryStatusText(ep.entry.status, ep.role, other ? playerName(other) : undefined)}
                   </p>
                   {withdrawalOpen && ep.entry.event.drawPublished && (
-                    <p className="text-sm text-slate-500">
+                    <p className="text-sm text-muted">
                       The draw has been published — contact the organizer if you need to withdraw.
                     </p>
                   )}
@@ -264,17 +264,17 @@ export default async function DashboardPage() {
         )}
       </section>
 
-      <section className="flex flex-col gap-4 border-t border-slate-200 pt-6 dark:border-slate-800">
+      <section className="flex flex-col gap-4 border-t border-border pt-6">
         <h2 className="text-lg font-semibold">My matches</h2>
         {myMatches.length === 0 ? (
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-muted">
             Your matches will appear here once a draw you&apos;re in is published.
           </p>
         ) : (
           <>
             {(upcomingTimed.length > 0 || upcomingUntimed.length > 0) && (
               <div className="flex flex-col gap-2">
-                <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300">Upcoming</h3>
+                <h3 className="text-sm font-semibold text-text">Upcoming</h3>
                 <ul className="flex flex-col gap-2">
                   {upcomingTimed.map((r) => (
                     <MyMatchItem key={r.match.id} row={r} emptyTimeLabel={null} />
@@ -287,7 +287,7 @@ export default async function DashboardPage() {
             )}
             {playedMatches.length > 0 && (
               <div className="flex flex-col gap-2">
-                <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300">Results</h3>
+                <h3 className="text-sm font-semibold text-text">Results</h3>
                 <ul className="flex flex-col gap-2">
                   {playedMatches.map((r) => (
                     <MyMatchItem key={r.match.id} row={r} emptyTimeLabel={null} />

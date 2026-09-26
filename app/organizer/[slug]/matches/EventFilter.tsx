@@ -23,11 +23,11 @@ export function EventFilter({ events }: { events: { id: string; name: string }[]
 
   return (
     <label className="flex items-center gap-2 text-sm">
-      <span className="font-medium text-slate-700 dark:text-slate-300">Event</span>
+      <span className="font-medium text-text">Event</span>
       <select
         value={selected}
         onChange={onChange}
-        className="rounded-md border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-900 outline-none focus:border-slate-500 dark:border-slate-600 dark:bg-slate-900 dark:text-white"
+        className="rounded-md border border-border bg-surface px-2 py-1.5 text-sm text-text outline-none focus:border-primary"
       >
         <option value="">All</option>
         {events.map((event) => (

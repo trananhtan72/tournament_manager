@@ -27,13 +27,13 @@ export function RegulationsDialog({
         onClick={(event) => {
           if (event.target === dialogRef.current) dialogRef.current?.close();
         }}
-        className="m-auto w-[min(42rem,calc(100vw-2rem))] rounded-lg border border-slate-200 bg-white p-0 text-slate-900 shadow-xl backdrop:bg-black/50 dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+        className="m-auto w-[min(42rem,calc(100vw-2rem))] rounded-lg border border-border bg-surface p-0 text-text shadow-xl backdrop:bg-black/50"
       >
-        <div className="flex items-center justify-between gap-4 border-b border-slate-200 px-5 py-3 dark:border-slate-700">
+        <div className="flex items-center justify-between gap-4 border-b border-border px-5 py-3">
           <h2 className="text-base font-semibold">{title}</h2>
           <button
             type="button"
-            className="rounded-md px-2 py-1 text-sm text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
+            className="rounded-md px-2 py-1 text-sm text-muted hover:bg-surface-muted"
             onClick={() => dialogRef.current?.close()}
           >
             Close

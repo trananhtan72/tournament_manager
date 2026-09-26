@@ -34,7 +34,7 @@ export default async function RefereesPage({ params }: PageProps<"/organizer/[sl
       <section className="flex flex-col gap-3">
         <div>
           <h2 className="text-lg font-semibold">Referees ({referees.length})</h2>
-          <p className="text-sm text-slate-600 dark:text-slate-400">
+          <p className="text-sm text-muted">
             Referees can enter scores from their phone or tablet for the matches you assign to them — and are
             notified when you do. Assign a match from the{" "}
             <Link href={`/organizer/${slug}/matches`} className="underline">
@@ -49,7 +49,7 @@ export default async function RefereesPage({ params }: PageProps<"/organizer/[sl
         </div>
 
         {referees.length === 0 ? (
-          <p className="text-sm text-slate-500">No referees yet. Add one below.</p>
+          <p className="text-sm text-muted">No referees yet. Add one below.</p>
         ) : (
           <ul className="flex flex-col gap-2">
             {referees.map((referee) => {
@@ -58,12 +58,12 @@ export default async function RefereesPage({ params }: PageProps<"/organizer/[sl
               return (
                 <li
                   key={referee.id}
-                  className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-slate-200 px-4 py-3 dark:border-slate-700"
+                  className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border px-4 py-3"
                 >
                   <div className="flex min-w-0 flex-col text-sm">
                     <span className="font-medium">{referee.user.name}</span>
-                    <span className="break-all text-slate-600 dark:text-slate-400">{referee.user.email}</span>
-                    <span className="text-xs text-slate-500">
+                    <span className="break-all text-muted">{referee.user.email}</span>
+                    <span className="text-xs text-muted">
                       {upcoming} to officiate · {done} done
                     </span>
                   </div>
@@ -75,9 +75,9 @@ export default async function RefereesPage({ params }: PageProps<"/organizer/[sl
         )}
       </section>
 
-      <section className="flex flex-col gap-3 border-t border-slate-200 pt-6 dark:border-slate-800">
+      <section className="flex flex-col gap-3 border-t border-border pt-6">
         <h2 className="text-lg font-semibold">Add a referee</h2>
-        <p className="text-sm text-slate-500">
+        <p className="text-sm text-muted">
           They need an account already — ask them to sign up first. Once added they&apos;ll see a &ldquo;Referee&rdquo; link
           in the menu.
         </p>

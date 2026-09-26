@@ -19,7 +19,7 @@ export default async function EntriesLayout({
 
   if (events.length === 0) {
     return (
-      <p className="text-sm text-slate-500">
+      <p className="text-sm text-muted">
         There are no events yet.{" "}
         <Link href={`/organizer/${slug}/events`} className="underline">
           Add an event

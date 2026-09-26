@@ -42,7 +42,7 @@ export default async function EventEntriesPage({
   return (
     <div className="flex flex-col gap-8">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-sm text-slate-600 dark:text-slate-400">
+        <p className="text-sm text-muted">
           {drawFormatLabels[event.drawFormat]} · {describeEventGameFormats(event)}
         </p>
         <Link href={`/organizer/${slug}/draws#draw-${event.id}`} className="text-sm underline">
@@ -53,10 +53,10 @@ export default async function EventEntriesPage({
       <section className="flex flex-col gap-3">
         <h2 className="text-lg font-semibold">Pending approval ({pendingApproval.length})</h2>
         {pendingApproval.length === 0 ? (
-          <p className="text-sm text-slate-500">No registrations waiting for approval.</p>
+          <p className="text-sm text-muted">No registrations waiting for approval.</p>
         ) : (
           <>
-            <p className="text-sm text-slate-500">
+            <p className="text-sm text-muted">
               Players who registered themselves. Approve a registration to move it to the
               confirmed entries; only confirmed entries go into the draw.
             </p>
@@ -64,7 +64,7 @@ export default async function EventEntriesPage({
               {pendingApproval.map((entry) => (
                 <li
                   key={entry.id}
-                  className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 dark:border-amber-700 dark:bg-amber-950/40"
+                  className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-warning/30 bg-warning/10 px-4 py-3"
                 >
                   <EntryPlayersWithEmail players={entry.players} />
                   <PendingEntryActions entryId={entry.id} />
@@ -78,13 +78,13 @@ export default async function EventEntriesPage({
       <section className="flex flex-col gap-3">
         <h2 className="text-lg font-semibold">Confirmed entries ({confirmed.length})</h2>
         {confirmed.length === 0 ? (
-          <p className="text-sm text-slate-500">No confirmed entries yet.</p>
+          <p className="text-sm text-muted">No confirmed entries yet.</p>
         ) : (
           <ul className="flex flex-col gap-2">
             {confirmed.map((entry) => (
               <li
                 key={entry.id}
-                className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-slate-200 px-4 py-3 dark:border-slate-700"
+                className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border px-4 py-3"
               >
                 <EntryPlayersWithEmail players={entry.players} />
                 <div className="flex items-center gap-3">
@@ -114,7 +114,7 @@ export default async function EventEntriesPage({
               return (
                 <li
                   key={entry.id}
-                  className="flex items-center justify-between rounded-md border border-slate-200 px-4 py-3 dark:border-slate-700"
+                  className="flex items-center justify-between rounded-md border border-border px-4 py-3"
                 >
                   <span className="text-sm">
                     {initiator ? getPlayerName(initiator) : "Unknown"} → invited{" "}
@@ -131,14 +131,14 @@ export default async function EventEntriesPage({
       <section className="flex flex-col gap-3">
         <h2 className="text-lg font-semibold">Needs a partner ({needsPartner.length})</h2>
         {needsPartner.length === 0 ? (
-          <p className="text-sm text-slate-500">No unpaired registrations.</p>
+          <p className="text-sm text-muted">No unpaired registrations.</p>
         ) : (
           <>
             <ul className="flex flex-col gap-2">
               {needsPartner.map((entry) => (
                 <li
                   key={entry.id}
-                  className="flex items-center justify-between rounded-md border border-slate-200 px-4 py-3 dark:border-slate-700"
+                  className="flex items-center justify-between rounded-md border border-border px-4 py-3"
                 >
                   <span className="text-sm">
                     {entry.players[0] ? getPlayerName(entry.players[0]) : "Unknown"}
@@ -154,9 +154,9 @@ export default async function EventEntriesPage({
         )}
       </section>
 
-      <section className="flex flex-col gap-3 border-t border-slate-200 pt-6 dark:border-slate-800">
+      <section className="flex flex-col gap-3 border-t border-border pt-6">
         <h2 className="text-lg font-semibold">Quick add entry</h2>
-        <p className="text-sm text-slate-500">
+        <p className="text-sm text-muted">
           For in-person or cash registrations. Leave email blank to add a player without an
           account.
         </p>

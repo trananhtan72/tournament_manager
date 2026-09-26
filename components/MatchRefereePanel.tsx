@@ -19,12 +19,12 @@ export function MatchRefereePanel({
   defaultOpen: boolean;
 }) {
   return (
-    <details open={defaultOpen} className="rounded-lg border border-slate-200 px-4 py-3 dark:border-slate-700">
+    <details open={defaultOpen} className="rounded-lg border border-border px-4 py-3">
       <summary className="cursor-pointer text-sm font-semibold">
         Referee: {refereeName ?? "none assigned"}
       </summary>
       <div className="flex flex-col gap-3 pt-3">
-        <p className="text-sm text-slate-600 dark:text-slate-400">
+        <p className="text-sm text-muted">
           {refereeName
             ? `${refereeName} can score this match from their phone or tablet. Assign someone else, or nobody, below.`
             : "Assign a referee to hand scoring over — pick from your referees or enter an email. They're notified straight away. With no referee, you score it yourself."}

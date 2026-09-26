@@ -72,7 +72,7 @@ export function MatchRefereeForm({
         <SubmitButton variant="secondary" pendingLabel="Saving…">
           Assign
         </SubmitButton>
-        {showSaved && <span className="pb-2 text-sm text-emerald-600 dark:text-emerald-400">Saved</span>}
+        {showSaved && <span className="pb-2 text-sm text-success">Saved</span>}
       </form>
       <FormError message={state.error} />
     </div>

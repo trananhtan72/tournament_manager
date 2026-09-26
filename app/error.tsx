@@ -18,7 +18,7 @@ export default function ErrorPage({
   return (
     <div className="flex flex-col items-center gap-3 py-16 text-center">
       <h1 className="text-2xl font-semibold">Something went wrong</h1>
-      <p className="text-sm text-slate-600 dark:text-slate-400">
+      <p className="text-sm text-muted">
         We couldn&apos;t load this page. Try again, or head back to the tournaments list.
       </p>
       <div className="flex items-center gap-4">
@@ -27,7 +27,7 @@ export default function ErrorPage({
           Browse tournaments
         </Link>
       </div>
-      {error.digest && <p className="text-xs text-slate-400">Reference: {error.digest}</p>}
+      {error.digest && <p className="text-xs text-muted">Reference: {error.digest}</p>}
     </div>
   );
 }

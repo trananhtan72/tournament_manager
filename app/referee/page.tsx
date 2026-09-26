@@ -18,7 +18,7 @@ import {
 export const metadata: Metadata = { title: "My matches to referee" };
 
 const buttonClass =
-  "inline-flex items-center justify-center rounded-md px-4 py-2 text-sm font-medium text-white";
+  "inline-flex items-center justify-center rounded-md px-4 py-2 text-sm font-medium";
 
 export default async function RefereeHomePage() {
   const session = await auth();
@@ -74,13 +74,13 @@ export default async function RefereeHomePage() {
     const when =
       match.status !== null ? formatStartedLabel(match.startedAt) : formatScheduleLabel(match);
     return (
-      <li className="flex flex-col gap-3 rounded-lg border border-slate-200 p-4 dark:border-slate-700">
+      <li className="flex flex-col gap-3 rounded-lg border border-border p-4">
         <div className="flex flex-col gap-0.5 text-sm">
           <span className="font-medium">
             {match.event.tournament.name} · {match.event.name}
           </span>
-          <span className="text-slate-600 dark:text-slate-400">{stage}</span>
-          {when && <span className="text-slate-600 dark:text-slate-400">{when}</span>}
+          <span className="text-muted">{stage}</span>
+          {when && <span className="text-muted">{when}</span>}
         </div>
         <MatchCard match={view} />
         {match.status === null &&
@@ -88,13 +88,13 @@ export default async function RefereeHomePage() {
             <div>
               <Link
                 href={`/referee/matches/${match.id}`}
-                className={`${buttonClass} ${live ? "bg-red-600 hover:bg-red-500" : "bg-slate-900 hover:bg-slate-700 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-200"}`}
+                className={`${buttonClass} ${live ? "bg-accent text-accent-foreground hover:bg-accent/90" : "bg-primary text-primary-foreground hover:bg-primary/90"}`}
               >
                 {live ? "Continue live scoring" : "Score this match"}
               </Link>
             </div>
           ) : (
-            <p className="text-sm text-slate-500">
+            <p className="text-sm text-muted">
               {!match.event.drawPublished
                 ? "Scoring opens once the draw is published."
                 : "Scoring opens once both players are known."}
@@ -105,11 +105,11 @@ export default async function RefereeHomePage() {
   }
 
   return (
-    <div className="flex flex-col gap-8">
+    <div className="mx-auto flex w-full max-w-4xl flex-col gap-8">
       <AutoRefresh intervalMs={todo.some((r) => isLiveMatch(r.match)) ? 6000 : 30000} />
       <div>
         <h1 className="text-xl font-semibold">Matches I&apos;m refereeing</h1>
-        <p className="text-sm text-slate-600 dark:text-slate-400">
+        <p className="text-sm text-muted">
           Score the matches you&apos;ve been assigned live, from your phone or tablet. The organizer can see and change
           everything.
         </p>
@@ -118,7 +118,7 @@ export default async function RefereeHomePage() {
       <section className="flex flex-col gap-3">
         <h2 className="text-lg font-semibold">To officiate ({todo.length})</h2>
         {todo.length === 0 ? (
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-muted">
             Nothing assigned right now. You&apos;ll get a notification when the organizer assigns you a match.
           </p>
         ) : (

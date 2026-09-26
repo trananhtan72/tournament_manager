@@ -13,12 +13,12 @@ export function SelectField({
   ...props
 }: SelectFieldProps) {
   return (
-    <label className="flex flex-col gap-1 text-sm font-medium text-slate-700 dark:text-slate-200">
+    <label className="flex flex-col gap-1 text-sm font-medium text-text">
       {label}
       <select
         id={name}
         name={name}
-        className={`rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-normal text-slate-900 outline-none focus:border-slate-500 dark:border-slate-600 dark:bg-slate-900 dark:text-white ${className}`}
+        className={`rounded-md border border-border bg-surface px-3 py-2 text-sm font-normal text-text outline-none focus:border-primary ${className}`}
         {...props}
       >
         {children}

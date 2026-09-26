@@ -30,7 +30,7 @@ export async function generateMetadata({ params }: PageProps<"/t/[slug]">): Prom
 function InfoRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex flex-col gap-0.5">
-      <dt className="text-xs font-medium uppercase tracking-wide text-slate-500">{label}</dt>
+      <dt className="text-xs font-medium uppercase tracking-wide text-muted">{label}</dt>
       <dd className="text-sm">{children}</dd>
     </div>
   );
@@ -39,15 +39,15 @@ function InfoRow({ label, children }: { label: string; children: React.ReactNode
 const statusBadge = {
   open: {
     label: "Open",
-    className: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200",
+    className: "bg-success/15 text-success",
   },
   not_open: {
     label: "Not open yet",
-    className: "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200",
+    className: "bg-warning/15 text-warning",
   },
   closed: {
     label: "Closed",
-    className: "bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-200",
+    className: "bg-surface-muted text-muted",
   },
 } as const;
 
@@ -115,9 +115,9 @@ export default async function OverviewTab({ params }: PageProps<"/t/[slug]">) {
       {liveCount > 0 && (
         <Link
           href={`/t/${slug}/matches`}
-          className="flex items-center gap-2 rounded-md border border-red-200 px-4 py-3 text-sm font-medium text-red-700 hover:bg-red-50 dark:border-red-900 dark:text-red-300 dark:hover:bg-red-950/40"
+          className="flex items-center gap-2 rounded-md border border-accent/30 px-4 py-3 text-sm font-medium text-accent hover:bg-accent/10"
         >
-          <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-red-600 dark:bg-red-400" aria-hidden />
+          <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-accent" aria-hidden />
           {liveCount} {liveCount === 1 ? "match is" : "matches are"} live now — watch the scores →
         </Link>
       )}
@@ -125,7 +125,7 @@ export default async function OverviewTab({ params }: PageProps<"/t/[slug]">) {
         <h2 id="signup-heading" className="text-lg font-semibold">
           Sign up &amp; dates
         </h2>
-        <dl className="grid grid-cols-1 gap-x-6 gap-y-4 rounded-md border border-slate-200 p-4 sm:grid-cols-2 dark:border-slate-700">
+        <dl className="grid grid-cols-1 gap-x-6 gap-y-4 rounded-md border border-border p-4 sm:grid-cols-2">
           <InfoRow label="Sign up status">
             <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${badge.className}`}>
               {badge.label}
@@ -138,7 +138,7 @@ export default async function OverviewTab({ params }: PageProps<"/t/[slug]">) {
           <InfoRow label="Withdrawal deadline">
             {formatDate(effectiveWithdrawalDeadline(tournament))}
             {!tournament.withdrawalDeadline && (
-              <span className="text-slate-500"> (same as the entry deadline)</span>
+              <span className="text-muted"> (same as the entry deadline)</span>
             )}
           </InfoRow>
           <InfoRow label="Tournament starts">{formatDate(tournament.startDate)}</InfoRow>
@@ -153,13 +153,13 @@ export default async function OverviewTab({ params }: PageProps<"/t/[slug]">) {
           Register
         </h2>
         {tournament.events.length === 0 ? (
-          <p className="text-sm text-slate-500">No events have been added yet.</p>
+          <p className="text-sm text-muted">No events have been added yet.</p>
         ) : (
           <ul className="flex flex-col gap-3">
             {tournament.events.map((event) => (
               <li
                 key={event.id}
-                className="flex flex-col gap-3 rounded-md border border-slate-200 px-4 py-3 dark:border-slate-700"
+                className="flex flex-col gap-3 rounded-md border border-border px-4 py-3"
               >
                 <div className="flex items-center justify-between">
                   <span className="font-medium">{event.name}</span>
@@ -191,14 +191,14 @@ export default async function OverviewTab({ params }: PageProps<"/t/[slug]">) {
         <h2 id="details-heading" className="text-lg font-semibold">
           Details
         </h2>
-        <dl className="grid grid-cols-1 gap-x-6 gap-y-4 rounded-md border border-slate-200 p-4 sm:grid-cols-2 dark:border-slate-700">
+        <dl className="grid grid-cols-1 gap-x-6 gap-y-4 rounded-md border border-border p-4 sm:grid-cols-2">
           <InfoRow label="Regulations">
             {regulations ? (
               <RegulationsDialog title={`Regulations — ${tournament.name}`} triggerLabel="Read the regulations">
                 <RegulationsContent doc={regulations} />
               </RegulationsDialog>
             ) : (
-              <span className="text-slate-500">Not provided</span>
+              <span className="text-muted">Not provided</span>
             )}
           </InfoRow>
           <InfoRow label="Organizer">{tournament.organizer.name}</InfoRow>

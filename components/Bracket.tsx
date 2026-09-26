@@ -52,10 +52,10 @@ function ScoreCells({
           key={i}
           className={`w-4 text-center text-xs tabular-nums ${
             i === liveIndex
-              ? "rounded bg-red-100 font-semibold text-red-700 dark:bg-red-950 dark:text-red-300"
+              ? "rounded bg-accent/15 font-semibold text-accent"
               : wonGame[i]
-                ? "font-semibold text-slate-900 dark:text-white print:text-slate-900"
-                : "text-slate-500 dark:text-slate-400 print:text-slate-600"
+                ? "font-semibold text-text"
+                : "text-muted"
           }`}
         >
           {value ?? ""}
@@ -68,7 +68,7 @@ function ScoreCells({
 function ServingDot() {
   return (
     <span
-      className="mr-1.5 inline-block h-1.5 w-1.5 rounded-full bg-emerald-500 align-middle"
+      className="mr-1.5 inline-block h-1.5 w-1.5 rounded-full bg-success align-middle"
       title="Serving"
       aria-label="Serving"
     />
@@ -99,45 +99,45 @@ export function MatchCard({ match }: { match: BracketMatchView }) {
   const entry2StatusLabel = statusLabel && !isEntry2Winner ? statusLabel : null;
 
   return (
-    <div className="flex w-64 flex-col gap-1 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 print:border-slate-300 print:bg-white">
+    <div className="flex w-64 flex-col gap-1 rounded-md border border-border bg-surface px-3 py-2 text-sm">
       {match.live ? (
-        <span className="flex items-center gap-1.5 truncate text-xs font-semibold text-red-600 dark:text-red-400">
-          <span className="h-2 w-2 shrink-0 animate-pulse rounded-full bg-red-600 dark:bg-red-400" aria-hidden />
+        <span className="flex items-center gap-1.5 truncate text-xs font-semibold text-accent">
+          <span className="h-2 w-2 shrink-0 animate-pulse rounded-full bg-accent" aria-hidden />
           LIVE · Game {match.live.currentGameIndex + 1}
           {match.live.matchPoint.length > 0 ? " · Match point" : match.live.gamePoint.length > 0 ? " · Game point" : ""}
         </span>
       ) : (
         match.scheduleLabel && (
-          <span className="truncate text-xs text-slate-500 dark:text-slate-400 print:text-slate-600">
+          <span className="truncate text-xs text-muted">
             {match.scheduleLabel}
           </span>
         )
       )}
       <div className="flex items-center justify-between gap-2">
         <span
-          className={`truncate ${isEntry1Winner ? "font-semibold text-slate-900 dark:text-white print:text-slate-900" : "text-slate-600 dark:text-slate-400 print:text-slate-600"}`}
+          className={`truncate ${isEntry1Winner ? "font-semibold text-text" : "text-muted"}`}
         >
           {match.live?.serving === 1 && <ServingDot />}
           {entryDisplay(match.entry1Label, match.entry1Seed) ?? "TBD"}
         </span>
         {hasGames && <ScoreCells scores={entry1Scores} wonGame={entry1WonGame} liveIndex={liveIndex} />}
         {entry1StatusLabel && (
-          <span className="shrink-0 text-xs text-slate-400 dark:text-slate-500 print:text-slate-500">
+          <span className="shrink-0 text-xs text-muted">
             {entry1StatusLabel}
           </span>
         )}
       </div>
-      <div className="border-t border-slate-100 dark:border-slate-800 print:border-slate-100" />
+      <div className="border-t border-border" />
       <div className="flex items-center justify-between gap-2">
         <span
-          className={`truncate ${isEntry2Winner ? "font-semibold text-slate-900 dark:text-white print:text-slate-900" : "text-slate-600 dark:text-slate-400 print:text-slate-600"}`}
+          className={`truncate ${isEntry2Winner ? "font-semibold text-text" : "text-muted"}`}
         >
           {match.live?.serving === 2 && <ServingDot />}
           {match.isBye ? "Bye" : (entryDisplay(match.entry2Label, match.entry2Seed) ?? "TBD")}
         </span>
         {hasGames && !match.isBye && <ScoreCells scores={entry2Scores} wonGame={entry2WonGame} liveIndex={liveIndex} />}
         {entry2StatusLabel && (
-          <span className="shrink-0 text-xs text-slate-400 dark:text-slate-500 print:text-slate-500">
+          <span className="shrink-0 text-xs text-muted">
             {entry2StatusLabel}
           </span>
         )}
@@ -168,11 +168,11 @@ function ConnectedPair({ children }: { children: [React.ReactNode, React.ReactNo
   return (
     <div className="relative flex flex-1 flex-col justify-around">
       <div
-        className="pointer-events-none absolute border-r border-slate-300 dark:border-slate-500 print:border-slate-400"
+        className="pointer-events-none absolute border-r border-border"
         style={{ right: 0, top: "25%", bottom: "25%" }}
       />
       <div
-        className="pointer-events-none absolute top-1/2 border-t border-slate-300 dark:border-slate-500 print:border-slate-400"
+        className="pointer-events-none absolute top-1/2 border-t border-border"
         style={{ right: `-${ROUND_GAP_REM}rem`, width: `${ROUND_GAP_REM}rem` }}
       />
       {children[0]}
@@ -235,7 +235,7 @@ export function Bracket({ matches }: { matches: BracketMatchView[] }) {
             .sort((a, b) => a.position - b.position);
           return (
             <div key={round} className="flex flex-col gap-4">
-              <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 print:text-slate-700">
+              <h3 className="text-sm font-semibold text-text">
                 {roundName(round, totalRounds)}
               </h3>
               <RoundColumn

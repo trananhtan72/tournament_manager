@@ -51,7 +51,7 @@ export function SignUpForm({ callbackUrl }: { callbackUrl: string }) {
         <FormError message={state.error} />
         <SubmitButton>Sign up</SubmitButton>
       </form>
-      <p className="mt-4 text-sm text-slate-600 dark:text-slate-400">
+      <p className="mt-4 text-sm text-muted">
         Already have an account?{" "}
         <Link
           href={`/signin?callbackUrl=${encodeURIComponent(callbackUrl)}`}
