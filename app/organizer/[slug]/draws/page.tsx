@@ -25,35 +25,36 @@ export default async function OrganizerDrawsPage({
     return <p className="text-sm text-muted">There are no events yet, so there are no draws.</p>;
   }
 
+  // A draft draw is generated, previewed, and published from that event's
+  // Manage entries tab; this tab only shows a draw once it's published.
+  const publishedEvents = tournament.events.filter((event) => event.drawPublished);
+  if (publishedEvents.length === 0) {
+    return (
+      <p className="text-sm text-muted">
+        No published draws yet. Generate and publish a draw from an event&apos;s Manage entries tab.
+      </p>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-8">
       <SimpleTable
-        columns={[
-          { label: "Draw" },
-          { label: "Size", align: "right" },
-          { label: "Type" },
-          { label: "Stage" },
-          { label: "Status" },
-        ]}
-        rows={tournament.events.map((event) => {
-          const drawn = event.matches.length > 0;
-          return {
-            key: event.id,
-            cells: [
-              <a key="draw" href={`#draw-${event.id}`} className="font-medium underline">
-                {event.name}
-              </a>,
-              drawn ? drawSize(event.drawFormat, event.matches) : event.entries.length,
-              drawFormatLabels[event.drawFormat],
-              drawStage(event.drawFormat, event.matches),
-              event.drawPublished ? "Published" : drawn ? "Draft" : "Not drawn",
-            ],
-          };
-        })}
+        columns={[{ label: "Draw" }, { label: "Size", align: "right" }, { label: "Type" }, { label: "Stage" }]}
+        rows={publishedEvents.map((event) => ({
+          key: event.id,
+          cells: [
+            <a key="draw" href={`#draw-${event.id}`} className="font-medium underline">
+              {event.name}
+            </a>,
+            drawSize(event.drawFormat, event.matches),
+            drawFormatLabels[event.drawFormat],
+            drawStage(event.drawFormat, event.matches),
+          ],
+        }))}
       />
 
-      {tournament.events.map((event) => (
-        <EventDrawManager key={event.id} event={event} tournamentName={tournament.name} />
+      {publishedEvents.map((event) => (
+        <EventDrawManager key={event.id} event={event} tournamentName={tournament.name} slug={slug} />
       ))}
     </div>
   );

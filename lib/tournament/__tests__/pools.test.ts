@@ -4,10 +4,12 @@ import {
   poolName,
   assignEntriesToPools,
   selectKnockoutAdvancers,
+  inferAdvancesPerPool,
   MIN_POOL_SIZE,
   MAX_POOL_SIZE,
   type SeededEntryForPools,
 } from "../pools";
+import { nextPowerOfTwo } from "../singleElimination";
 
 function mulberry32(seed: number): () => number {
   let a = seed;
@@ -128,5 +130,20 @@ describe("selectKnockoutAdvancers", () => {
     const standings = [["a1", "a2", "a3"], ["b1"]];
     const advancers = selectKnockoutAdvancers(standings, 2);
     expect(advancers.map((a) => a.entryId)).toEqual(["a1", "b1", "a2"]);
+  });
+});
+
+describe("inferAdvancesPerPool", () => {
+  it("recovers the choice that was actually made, for every pool count 2-20", () => {
+    for (let poolCount = 2; poolCount <= 20; poolCount++) {
+      for (const advancesPerPool of [1, 2] as const) {
+        const bracketSize = nextPowerOfTwo(poolCount * advancesPerPool);
+        expect(inferAdvancesPerPool(poolCount, bracketSize)).toBe(advancesPerPool);
+      }
+    }
+  });
+
+  it("returns null for a bracket size neither choice could have produced", () => {
+    expect(inferAdvancesPerPool(3, 64)).toBeNull();
   });
 });

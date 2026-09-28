@@ -75,7 +75,14 @@ function ServingDot() {
   );
 }
 
-export function MatchCard({ match }: { match: BracketMatchView }) {
+export function MatchCard({
+  match,
+  interactive = false,
+}: {
+  match: BracketMatchView;
+  /** True when the caller wraps this card in a click-to-start trigger, so it should look clickable. */
+  interactive?: boolean;
+}) {
   const liveIndex = match.live ? match.live.currentGameIndex : null;
   const isEntry1Winner = match.winnerLabel !== null && match.winnerLabel === match.entry1Label;
   const isEntry2Winner = match.winnerLabel !== null && match.winnerLabel === match.entry2Label;
@@ -99,7 +106,11 @@ export function MatchCard({ match }: { match: BracketMatchView }) {
   const entry2StatusLabel = statusLabel && !isEntry2Winner ? statusLabel : null;
 
   return (
-    <div className="flex w-64 flex-col gap-1 rounded-md border border-border bg-surface px-3 py-2 text-sm">
+    <div
+      className={`flex w-64 flex-col gap-1 rounded-md border border-border bg-surface px-3 py-2 text-sm ${
+        interactive ? "transition-colors hover:border-primary hover:bg-surface-muted" : ""
+      }`}
+    >
       {match.live ? (
         <span className="flex items-center gap-1.5 truncate text-xs font-semibold text-accent">
           <span className="h-2 w-2 shrink-0 animate-pulse rounded-full bg-accent" aria-hidden />
@@ -185,10 +196,12 @@ function RoundColumn({
   matches,
   isLastRound,
   totalHeightRem,
+  renderMatch,
 }: {
   matches: BracketMatchView[];
   isLastRound: boolean;
   totalHeightRem: number;
+  renderMatch: (match: BracketMatchView) => React.ReactNode;
 }) {
   if (isLastRound || matches.length === 1) {
     return (
@@ -196,9 +209,7 @@ function RoundColumn({
         className="flex flex-col justify-around"
         style={{ minHeight: `${totalHeightRem}rem` }}
       >
-        {matches.map((match) => (
-          <MatchCard key={match.id} match={match} />
-        ))}
+        {matches.map((match) => renderMatch(match))}
       </div>
     );
   }
@@ -211,15 +222,24 @@ function RoundColumn({
   return (
     <div className="flex flex-col" style={{ minHeight: `${totalHeightRem}rem` }}>
       {pairs.map((pair) => (
-        <ConnectedPair key={pair[0].id}>
-          {[<MatchCard key={pair[0].id} match={pair[0]} />, <MatchCard key={pair[1].id} match={pair[1]} />]}
-        </ConnectedPair>
+        <ConnectedPair key={pair[0].id}>{[renderMatch(pair[0]), renderMatch(pair[1])]}</ConnectedPair>
       ))}
     </div>
   );
 }
 
-export function Bracket({ matches }: { matches: BracketMatchView[] }) {
+export function Bracket({
+  matches,
+  renderMatch = (match) => <MatchCard key={match.id} match={match} />,
+}: {
+  matches: BracketMatchView[];
+  /**
+   * Customizes how each match card renders — organizer views use this to
+   * wrap a startable match in a click-to-score trigger. Defaults to a plain,
+   * non-interactive MatchCard (every public/read-only view).
+   */
+  renderMatch?: (match: BracketMatchView) => React.ReactNode;
+}) {
   const totalRounds = matches.reduce((max, m) => Math.max(max, m.round), 0);
   const rounds = Array.from({ length: totalRounds }, (_, i) => i + 1);
   const round1Count = matches.filter((m) => m.round === 1).length;
@@ -242,6 +262,7 @@ export function Bracket({ matches }: { matches: BracketMatchView[] }) {
                 matches={roundMatches}
                 isLastRound={round === totalRounds}
                 totalHeightRem={totalHeightRem}
+                renderMatch={renderMatch}
               />
             </div>
           );

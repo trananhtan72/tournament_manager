@@ -11,6 +11,7 @@ import { PendingEntryActions } from "@/components/PendingEntryActions";
 import { EntryPlayersWithEmail } from "@/components/EntryPlayersWithEmail";
 import { PairEntriesForm } from "@/app/organizer/[slug]/entries/PairEntriesForm";
 import { QuickAddEntryForm } from "@/app/organizer/[slug]/entries/QuickAddEntryForm";
+import { EventDrawManager, drawEventInclude } from "@/app/organizer/[slug]/draws/EventDrawManager";
 
 export default async function EventEntriesPage({
   params,
@@ -25,6 +26,9 @@ export default async function EventEntriesPage({
         include: { players: { include: { user: true } } },
         orderBy: { createdAt: "asc" },
       },
+      pools: drawEventInclude.pools,
+      matches: drawEventInclude.matches,
+      tournament: { select: { name: true } },
     },
   });
   if (!event) notFound();
@@ -45,9 +49,11 @@ export default async function EventEntriesPage({
         <p className="text-sm text-muted">
           {drawFormatLabels[event.drawFormat]} · {describeEventGameFormats(event)}
         </p>
-        <Link href={`/organizer/${slug}/draws#draw-${event.id}`} className="text-sm underline">
-          Go to this draw →
-        </Link>
+        {event.drawPublished && (
+          <Link href={`/organizer/${slug}/draws#draw-${event.id}`} className="text-sm underline">
+            Go to this draw →
+          </Link>
+        )}
       </div>
 
       <section className="flex flex-col gap-3">
@@ -101,6 +107,10 @@ export default async function EventEntriesPage({
           </ul>
         )}
       </section>
+
+      {!event.drawPublished && (
+        <EventDrawManager event={{ ...event, entries: confirmed }} tournamentName={event.tournament.name} slug={slug} />
+      )}
 
       {pendingPartner.length > 0 && (
         <section className="flex flex-col gap-3">

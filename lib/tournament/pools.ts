@@ -1,4 +1,5 @@
 import { shuffle } from "./shuffle";
+import { nextPowerOfTwo } from "./singleElimination";
 
 export const MIN_POOL_SIZE = 3;
 export const MAX_POOL_SIZE = 5;
@@ -81,4 +82,19 @@ export function selectKnockoutAdvancers(
     }
   }
   return result;
+}
+
+/**
+ * Recovers which advances-per-pool choice (1 or 2) produced a given
+ * knockout bracket size, for code that needs to know it after the fact —
+ * generateManualKnockoutStage sizes the bracket from it but doesn't persist
+ * the choice itself. Unambiguous by construction: nextPowerOfTwo(poolCount)
+ * and nextPowerOfTwo(poolCount * 2) can never round up to the same size (the
+ * second is always more than double the first's lower bound), so at most one
+ * candidate ever matches.
+ */
+export function inferAdvancesPerPool(poolCount: number, bracketSize: number): 1 | 2 | null {
+  if (nextPowerOfTwo(poolCount) === bracketSize) return 1;
+  if (nextPowerOfTwo(poolCount * 2) === bracketSize) return 2;
+  return null;
 }
