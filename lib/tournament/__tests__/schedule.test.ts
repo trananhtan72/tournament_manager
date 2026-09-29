@@ -263,24 +263,25 @@ describe("formatStartedLabel", () => {
 });
 
 describe("formatElapsedDuration", () => {
-  it("formats minutes and seconds under an hour", () => {
-    expect(formatElapsedDuration(0)).toBe("0:00");
-    expect(formatElapsedDuration(65_000)).toBe("1:05");
-    expect(formatElapsedDuration(9 * 60_000 + 5_000)).toBe("9:05");
-    expect(formatElapsedDuration(59 * 60_000 + 59_000)).toBe("59:59");
+  it("formats the whole number of minutes elapsed", () => {
+    expect(formatElapsedDuration(0)).toBe("0 min");
+    expect(formatElapsedDuration(65_000)).toBe("1 min");
+    expect(formatElapsedDuration(9 * 60_000 + 5_000)).toBe("9 min");
+    expect(formatElapsedDuration(59 * 60_000 + 59_000)).toBe("59 min");
   });
 
-  it("adds an hours component once it reaches an hour", () => {
-    expect(formatElapsedDuration(60 * 60_000)).toBe("1:00:00");
-    expect(formatElapsedDuration(62 * 60_000 + 5_000)).toBe("1:02:05");
+  it("keeps counting past an hour rather than rolling over", () => {
+    expect(formatElapsedDuration(60 * 60_000)).toBe("60 min");
+    expect(formatElapsedDuration(62 * 60_000 + 5_000)).toBe("62 min");
   });
 
-  it("truncates rather than rounds partial seconds", () => {
-    expect(formatElapsedDuration(65_999)).toBe("1:05");
+  it("truncates rather than rounds a partial minute", () => {
+    expect(formatElapsedDuration(65_999)).toBe("1 min");
+    expect(formatElapsedDuration(59_999)).toBe("0 min");
   });
 
-  it("floors a negative or zero duration to 0:00, rather than showing nonsense", () => {
-    expect(formatElapsedDuration(-5000)).toBe("0:00");
+  it("floors a negative or zero duration to 0 min, rather than showing nonsense", () => {
+    expect(formatElapsedDuration(-5000)).toBe("0 min");
   });
 });
 

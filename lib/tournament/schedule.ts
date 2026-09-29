@@ -105,20 +105,17 @@ export function formatStartedLabel(startedAt: Date | null): string | null {
 }
 
 /**
- * "12:34" (or "1:02:34" past an hour) for how long a live match has been
- * going. Unlike scheduledAt/startedAt, this is meant to be computed from two
- * genuine instants (e.g. `Date.now() - match.liveStartedAt.getTime()`), not
- * the "floating" venue-local convention the rest of this file uses — a
- * negative or otherwise malformed value floors to "0:00" rather than
- * displaying nonsense.
+ * "12 min" for how long a live match has been going, to the whole minute —
+ * a spectator scoreboard doesn't need second-level precision. Unlike
+ * scheduledAt/startedAt, this is meant to be computed from two genuine
+ * instants (e.g. `Date.now() - match.liveStartedAt.getTime()`), not the
+ * "floating" venue-local convention the rest of this file uses — a negative
+ * or otherwise malformed value floors to "0 min" rather than displaying
+ * nonsense.
  */
 export function formatElapsedDuration(elapsedMs: number): string {
-  const totalSeconds = Math.max(0, Math.floor(elapsedMs / 1000));
-  const hours = Math.floor(totalSeconds / 3600);
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
-  const seconds = totalSeconds % 60;
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return hours > 0 ? `${hours}:${pad(minutes)}:${pad(seconds)}` : `${minutes}:${pad(seconds)}`;
+  const totalMinutes = Math.max(0, Math.floor(elapsedMs / 60_000));
+  return `${totalMinutes} min`;
 }
 
 /** Natural order ("Court 2" before "Court 10"); matches without a court go last. */

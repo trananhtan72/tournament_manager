@@ -22,7 +22,7 @@ export type Board = {
   winnerSide: 1 | 2 | null;
   /** "Walkover" / "Retired" for results that weren't played out. */
   note: string | null;
-  /** "12:34" — how long the match has been live (live only), pre-formatted by formatElapsedDuration. */
+  /** "12 min" — how long the match has been live (live only), pre-formatted by formatElapsedDuration. */
   elapsed: string | null;
 };
 
