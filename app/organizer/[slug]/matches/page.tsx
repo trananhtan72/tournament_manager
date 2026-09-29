@@ -365,9 +365,9 @@ export default async function MatchCenterPage({
             gridDays.map((day) => (
               <section key={day.day} className="flex flex-col gap-3">
                 <h2 className="text-lg font-semibold">{formatDayHeading(day.date)}</h2>
-                <div className="flex gap-4 overflow-x-auto pb-2">
+                <div className="grid grid-cols-[repeat(auto-fit,minmax(260px,1fr))] gap-4">
                   {courtColumns(day.items).map((column) => (
-                    <div key={column.court} className="flex w-80 shrink-0 flex-col gap-3">
+                    <div key={column.court} className="flex min-w-0 flex-col gap-3">
                       <h3 className="text-sm font-semibold text-text">{column.court}</h3>
                       <ul className="flex flex-col gap-4">
                         {column.items.map((item) => (
