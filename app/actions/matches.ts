@@ -4,6 +4,7 @@ import { revalidateTournament } from "@/lib/revalidate";
 import { prisma } from "@/lib/prisma";
 import { requireUserId } from "@/lib/session";
 import { recordMatchResult } from "@/lib/recordMatchResult";
+import { cascadeRescheduleAfterMatch } from "@/lib/cascadeReschedule";
 import { validateCompletedMatch, type GameScore } from "@/lib/tournament/scoring";
 import { gameFormatForMatch } from "@/lib/tournament/gameFormat";
 import { parseDateTimeLocal } from "@/lib/tournament/schedule";
@@ -87,7 +88,14 @@ export async function submitMatchResult(
     if (!startedAt) return { error: "Enter a valid start time." };
   }
 
-  await recordMatchResult(match, { status, winnerId, games, startedAt });
+  // The device clock at the moment of saving — same floating convention as
+  // startedAt, and set by the form right before submitting (see
+  // MatchResultForm) so it reflects the actual save, not when the page loaded.
+  const actualEnd = parseDateTimeLocal(String(formData.get("endedAt") ?? ""));
+  if (!actualEnd) return { error: "Couldn't read the current time. Reload the page and try again." };
+
+  await recordMatchResult(match, { status, winnerId, games, startedAt, actualEnd });
+  await cascadeRescheduleAfterMatch(matchId, actualEnd);
 
   revalidateTournament(match.event.tournament.slug);
   return {};

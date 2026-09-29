@@ -9,6 +9,14 @@ export type RecordedResult = {
   games: GameScore[];
   /** When the match began (venue-local wall-clock time); null for a walkover, which was never played. */
   startedAt: Date | null;
+  /**
+   * When this result was actually recorded (the device clock at that
+   * moment — same floating convention as startedAt/scheduledAt), so the
+   * estimated schedule knows when the court/players free up. Set even for a
+   * walkover: the slot resolves the moment it's decided, not when play
+   * would have ended.
+   */
+  actualEnd: Date;
 };
 
 /**
@@ -33,7 +41,7 @@ export async function recordMatchResult(
   result: RecordedResult,
   { keepLivePoints = false }: { keepLivePoints?: boolean } = {},
 ): Promise<void> {
-  const { status, winnerId, games, startedAt } = result;
+  const { status, winnerId, games, startedAt, actualEnd } = result;
 
   const txOps = [
     prisma.matchGame.deleteMany({ where: { matchId: match.id } }),
@@ -49,6 +57,7 @@ export async function recordMatchResult(
       where: { id: match.id },
       data: {
         winnerId,
+        actualEnd,
         status,
         startedAt,
         ...(keepLivePoints ? {} : { liveStartedAt: null, firstServer: null }),

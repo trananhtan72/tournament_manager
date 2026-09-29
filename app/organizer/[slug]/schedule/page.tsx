@@ -5,8 +5,9 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { entryDisplayName } from "@/lib/playerDisplay";
 import { formatDate } from "@/lib/formatDate";
-import { dayKey, knockoutRoundCount, stageLabel, toDateTimeLocal } from "@/lib/tournament/schedule";
+import { dayKey, formatScheduleLabel, knockoutRoundCount, stageLabel, toDateTimeLocal } from "@/lib/tournament/schedule";
 import { MatchScheduleForm } from "@/app/organizer/[slug]/schedule/MatchScheduleForm";
+import { BulkScheduleForm, type BulkScheduleEventGroup } from "@/app/organizer/[slug]/schedule/BulkScheduleForm";
 import { MatchRefereeForm } from "@/app/organizer/[slug]/referees/MatchRefereeForm";
 
 export const metadata: Metadata = { title: "Match schedule" };
@@ -54,23 +55,43 @@ export default async function OrganizerSchedulePage({
     .map((event) => {
       const knockoutRounds = knockoutRoundCount(event.matches);
       const poolNames = new Map(event.pools.map((p) => [p.id, p.name]));
-      const groups = new Map<string, { title: string; matches: typeof event.matches }>();
-      for (const match of event.matches) {
-        if (match.isBye) continue;
-        const title = stageLabel(
+      const stageFor = (match: { poolId: string | null; round: number }) =>
+        stageLabel(
           { poolName: match.poolId ? (poolNames.get(match.poolId) ?? null) : null, round: match.round },
           { drawFormat: event.drawFormat, knockoutRounds },
         );
+      const groups = new Map<string, { title: string; matches: typeof event.matches }>();
+      for (const match of event.matches) {
+        if (match.isBye) continue;
+        const title = stageFor(match);
         const group = groups.get(title) ?? { title, matches: [] };
         group.matches.push(match);
         groups.set(title, group);
       }
-      return { event, groups: [...groups.values()] };
+      const schedulable: BulkScheduleEventGroup = {
+        eventId: event.id,
+        eventName: event.name,
+        matches: event.matches
+          .filter((m) => !m.isBye && m.status === null)
+          .map((m) => ({
+            id: m.id,
+            stage: stageFor(m),
+            label: `${m.entry1 ? entryDisplayName(m.entry1) : "TBD"} vs ${m.entry2 ? entryDisplayName(m.entry2) : "TBD"}`,
+            currentTime: formatScheduleLabel({
+              scheduledAt: m.scheduledAt,
+              court: m.court,
+              status: m.status,
+              liveStartedAt: m.liveStartedAt,
+            }),
+          })),
+      };
+      return { event, groups: [...groups.values()], schedulable };
     })
     .filter(({ groups }) => groups.length > 0);
 
   const allMatches = events.flatMap(({ groups }) => groups.flatMap((g) => g.matches));
   const scheduledCount = allMatches.filter((m) => m.scheduledAt !== null).length;
+  const schedulableByEvent = events.map(({ schedulable }) => schedulable).filter((e) => e.matches.length > 0);
 
   return (
     <div className="flex flex-col gap-6">
@@ -96,6 +117,28 @@ export default async function OrganizerSchedulePage({
           </p>
         )}
       </div>
+
+      {events.length > 0 && (
+        <section className="flex flex-col gap-4 rounded-lg border border-border p-4">
+          <div>
+            <h2 className="text-lg font-semibold">Schedule or reschedule a day</h2>
+            <p className="text-sm text-muted">
+              Pick a date and start time, then check which matches play that day — each one gets a time
+              and a court, spread evenly across your {tournament.courtCount} court
+              {tournament.courtCount === 1 ? "" : "s"} (lower-numbered courts filled first), never
+              starting a player before they&apos;ve had the minimum rest since their last match (across
+              every event they&apos;re in). Already-scheduled matches are listed too, so you can select
+              them again to revise the plan.
+            </p>
+          </div>
+          <BulkScheduleForm
+            tournamentId={tournament.id}
+            events={schedulableByEvent}
+            firstDay={firstDay}
+            lastDay={lastDay}
+          />
+        </section>
+      )}
 
       {events.length === 0 ? (
         <p className="text-sm text-muted">

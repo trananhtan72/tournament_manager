@@ -213,8 +213,16 @@ model Match {
   liveStartedAt DateTime?
   firstServer   Int?
   // When the match actually began: a venue-local wall-clock time, stored the
-  // same "floating" way as scheduledAt. Saved with every played result.
+  // same "floating" way as scheduledAt. Saved with every played result. This
+  // is the "actual start" the estimated schedule (lib/tournament/schedule.ts)
+  // reads — there's no separate field for it.
   startedAt     DateTime?
+  // When the match's result was actually recorded — also set for a walkover
+  // or retirement, since the slot resolves the moment it's decided, not when
+  // play would have ended. Same floating convention as startedAt. Distinct
+  // from updatedAt, which also moves if the result is edited later. Read by
+  // the estimated schedule to know when a court/player frees up.
+  actualEnd     DateTime?
   // The referee assigned to score this match (null = only the organizer).
   refereeId     String?
   referee       TournamentReferee? @relation(fields: [refereeId], references: [id], onDelete: SetNull)

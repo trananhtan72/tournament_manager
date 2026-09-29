@@ -84,7 +84,16 @@ export function MatchResultForm({
   }
 
   return (
-    <form action={formAction} className="flex flex-col gap-3 rounded-md border border-border p-3">
+    <form
+      action={(formData) => {
+        // Freshly computed at the moment of submission (not when the form
+        // opened) — the device is at the venue, so its clock is the venue's
+        // wall-clock time.
+        formData.set("endedAt", dateTimeLocalFromDevice());
+        formAction(formData);
+      }}
+      className="flex flex-col gap-3 rounded-md border border-border p-3"
+    >
       <p className="text-sm font-medium">
         {entry1Label} vs {entry2Label}
       </p>

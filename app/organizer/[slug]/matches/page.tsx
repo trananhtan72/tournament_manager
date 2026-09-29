@@ -6,9 +6,18 @@ import { toBracketMatchView, toScorable } from "@/lib/matchView";
 import { isLiveMatch, loadLiveStates } from "@/lib/liveMatches";
 import { courtNumbers } from "@/lib/tournament/courts";
 import { CopyLinkButton } from "@/components/CopyLinkButton";
+import { ViewTabs } from "@/components/ViewTabs";
 import { MatchRefereeForm } from "@/app/organizer/[slug]/referees/MatchRefereeForm";
 import { gameFormatForMatch } from "@/lib/tournament/gameFormat";
-import { formatScheduleLabel, knockoutRoundCount, sortSchedule, stageLabel } from "@/lib/tournament/schedule";
+import {
+  courtColumns,
+  formatDayHeading,
+  formatScheduleLabel,
+  groupByDay,
+  knockoutRoundCount,
+  sortSchedule,
+  stageLabel,
+} from "@/lib/tournament/schedule";
 import { MatchResultForm } from "@/app/organizer/[slug]/matches/MatchResultForm";
 import { EventFilter } from "@/app/organizer/[slug]/matches/EventFilter";
 
@@ -78,7 +87,8 @@ export default async function MatchCenterPage({
   searchParams,
 }: PageProps<"/organizer/[slug]/matches">) {
   const { slug } = await params;
-  const { event: rawEventFilter } = await searchParams;
+  const { event: rawEventFilter, view: rawView } = await searchParams;
+  const gridView = rawView === "grid";
   const userId = await requireOrganizerId();
 
   const tournament = await prisma.tournament.findFirst({
@@ -160,6 +170,23 @@ export default async function MatchCenterPage({
   const played = filteredItems
     .filter((i) => i.match.status !== null)
     .sort((a, b) => b.match.updatedAt.getTime() - a.match.updatedAt.getTime());
+
+  // Grid view mixes upcoming and played matches into one court-by-court, day-by-day
+  // board — a different cut of the same data than the upcoming/played split above.
+  const notLiveAll = filteredItems.filter((i) => !isLiveMatch(i.match));
+  const gridDays = groupByDay(
+    sortSchedule(
+      notLiveAll.flatMap((i) => (i.match.scheduledAt ? [{ ...i, scheduledAt: i.match.scheduledAt, court: i.match.court }] : [])),
+    ),
+  );
+  const gridUntimed = notLiveAll
+    .filter((i) => !i.match.scheduledAt)
+    .sort(
+      (a, b) =>
+        a.eventName.localeCompare(b.eventName, "en", { numeric: true }) ||
+        a.round - b.round ||
+        a.position - b.position,
+    );
 
   function MatchItem({ item }: { item: Item }) {
     const { match, eventName, stage, format } = item;
@@ -269,7 +296,15 @@ export default async function MatchCenterPage({
           </Link>
           .
         </p>
-        {eventChoices.length > 0 && <EventFilter events={eventChoices} />}
+        <div className="flex flex-wrap items-center gap-3">
+          {eventChoices.length > 0 && <EventFilter events={eventChoices} />}
+          <ViewTabs
+            options={[
+              { value: "list", label: "List view" },
+              { value: "grid", label: "Grid view" },
+            ]}
+          />
+        </div>
       </div>
 
       <details className="rounded-md border border-border px-4 py-2 text-sm">
@@ -303,71 +338,129 @@ export default async function MatchCenterPage({
         </p>
       )}
 
-      <div className="grid grid-cols-1 gap-8 md:grid-cols-2 md:gap-6">
-        <section aria-labelledby="upcoming-heading" className="flex min-w-0 flex-col gap-4">
-          <h2 id="upcoming-heading" className="text-lg font-semibold">
-            Upcoming matches ({upcoming.length})
-          </h2>
-          {upcoming.length === 0 ? (
+      {gridView ? (
+        <div className="flex flex-col gap-8">
+          {upcomingLive.length > 0 && (
+            <section aria-labelledby="live-now-heading" className="flex flex-col gap-3">
+              <h2 id="live-now-heading" className="text-sm font-semibold text-accent">
+                Live now ({upcomingLive.length})
+              </h2>
+              <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {upcomingLive.map((item) => (
+                  <MatchItem key={item.match.id} item={item} />
+                ))}
+              </ul>
+            </section>
+          )}
+
+          {gridDays.length === 0 && upcomingLive.length === 0 ? (
             <p className="text-sm text-muted">
               {items.length === 0
                 ? "No published draws yet."
                 : selectedEventId
-                  ? "No matches left to play in this event."
-                  : "No matches left to play."}
+                  ? "No timed matches in this event yet."
+                  : "No matches have a time yet."}
             </p>
           ) : (
-            <>
-              {upcomingLive.length > 0 && (
-                <div className="flex flex-col gap-3">
-                  <h3 className="text-sm font-semibold text-accent">Live now</h3>
-                  <ul className="flex flex-col gap-4">
-                    {upcomingLive.map((item) => (
-                      <MatchItem key={item.match.id} item={item} />
-                    ))}
-                  </ul>
-                </div>
-              )}
-              {upcomingTimed.length > 0 && (
-                <ul className="flex flex-col gap-4">
-                  {upcomingTimed.map((item) => (
-                    <MatchItem key={item.match.id} item={item} />
+            gridDays.map((day) => (
+              <section key={day.day} className="flex flex-col gap-3">
+                <h2 className="text-lg font-semibold">{formatDayHeading(day.date)}</h2>
+                <div className="flex gap-4 overflow-x-auto pb-2">
+                  {courtColumns(day.items).map((column) => (
+                    <div key={column.court} className="flex w-80 shrink-0 flex-col gap-3">
+                      <h3 className="text-sm font-semibold text-text">{column.court}</h3>
+                      <ul className="flex flex-col gap-4">
+                        {column.items.map((item) => (
+                          <MatchItem key={item.match.id} item={item} />
+                        ))}
+                      </ul>
+                    </div>
                   ))}
-                </ul>
-              )}
-              {upcomingUntimed.length > 0 && (
-                <div className="flex flex-col gap-3">
-                  {(upcomingTimed.length > 0 || upcomingLive.length > 0) && (
-                    <h3 className="text-sm font-semibold text-text">Not scheduled yet</h3>
-                  )}
+                </div>
+              </section>
+            ))
+          )}
+
+          {gridUntimed.length > 0 && (
+            <section aria-labelledby="untimed-heading" className="flex flex-col gap-3">
+              <h2 id="untimed-heading" className="text-lg font-semibold">
+                Not yet scheduled ({gridUntimed.length})
+              </h2>
+              <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {gridUntimed.map((item) => (
+                  <MatchItem key={item.match.id} item={item} />
+                ))}
+              </ul>
+            </section>
+          )}
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 gap-8 md:grid-cols-2 md:gap-6">
+          <section aria-labelledby="upcoming-heading" className="flex min-w-0 flex-col gap-4">
+            <h2 id="upcoming-heading" className="text-lg font-semibold">
+              Upcoming matches ({upcoming.length})
+            </h2>
+            {upcoming.length === 0 ? (
+              <p className="text-sm text-muted">
+                {items.length === 0
+                  ? "No published draws yet."
+                  : selectedEventId
+                    ? "No matches left to play in this event."
+                    : "No matches left to play."}
+              </p>
+            ) : (
+              <>
+                {upcomingLive.length > 0 && (
+                  <div className="flex flex-col gap-3">
+                    <h3 className="text-sm font-semibold text-accent">Live now</h3>
+                    <ul className="flex flex-col gap-4">
+                      {upcomingLive.map((item) => (
+                        <MatchItem key={item.match.id} item={item} />
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {upcomingTimed.length > 0 && (
                   <ul className="flex flex-col gap-4">
-                    {upcomingUntimed.map((item) => (
+                    {upcomingTimed.map((item) => (
                       <MatchItem key={item.match.id} item={item} />
                     ))}
                   </ul>
-                </div>
-              )}
-            </>
-          )}
-        </section>
+                )}
+                {upcomingUntimed.length > 0 && (
+                  <div className="flex flex-col gap-3">
+                    {(upcomingTimed.length > 0 || upcomingLive.length > 0) && (
+                      <h3 className="text-sm font-semibold text-text">Not scheduled yet</h3>
+                    )}
+                    <ul className="flex flex-col gap-4">
+                      {upcomingUntimed.map((item) => (
+                        <MatchItem key={item.match.id} item={item} />
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </>
+            )}
+          </section>
 
-        <section aria-labelledby="played-heading" className="flex min-w-0 flex-col gap-4">
-          <h2 id="played-heading" className="text-lg font-semibold">
-            Played matches ({played.length})
-          </h2>
-          {played.length === 0 ? (
-            <p className="text-sm text-muted">
-              {selectedEventId ? "No matches played yet in this event." : "No matches have been played yet."}
-            </p>
-          ) : (
-            <ul className="flex flex-col gap-4">
-              {played.map((item) => (
-                <MatchItem key={item.match.id} item={item} />
-              ))}
-            </ul>
-          )}
-        </section>
-      </div>
+          <section aria-labelledby="played-heading" className="flex min-w-0 flex-col gap-4">
+            <h2 id="played-heading" className="text-lg font-semibold">
+              Played matches ({played.length})
+            </h2>
+            {played.length === 0 ? (
+              <p className="text-sm text-muted">
+                {selectedEventId ? "No matches played yet in this event." : "No matches have been played yet."}
+              </p>
+            ) : (
+              <ul className="flex flex-col gap-4">
+                {played.map((item) => (
+                  <MatchItem key={item.match.id} item={item} />
+                ))}
+              </ul>
+            )}
+          </section>
+        </div>
+      )}
     </div>
   );
 }

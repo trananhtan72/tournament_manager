@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { requireUserId } from "@/lib/session";
 import { revalidateTournament } from "@/lib/revalidate";
 import { recordMatchResult } from "@/lib/recordMatchResult";
+import { cascadeRescheduleAfterMatch } from "@/lib/cascadeReschedule";
 import { gameFormatForMatch } from "@/lib/tournament/gameFormat";
 import { completedGames, isSide, replayPoints, type Side } from "@/lib/tournament/liveScoring";
 import { validateCompletedMatch } from "@/lib/tournament/scoring";
@@ -183,6 +184,7 @@ export async function confirmLiveResult(
   matchId: string,
   expectedPoints: number,
   startedAtInput: string,
+  endedAtInput: string,
 ): Promise<LiveActionState> {
   const loaded = await loadScorableMatch(matchId);
   if ("error" in loaded) return { error: loaded.error };
@@ -196,6 +198,10 @@ export async function confirmLiveResult(
     if (!startedAt) return { error: "Enter a valid start time." };
   }
   if (!startedAt) return { error: "Enter when the match started." };
+
+  // The device clock right now (venue-local, same floating convention).
+  const actualEnd = parseDateTimeLocal(endedAtInput);
+  if (!actualEnd) return { error: "Couldn't read the current time. Reload the page and try again." };
 
   const sides = await loadSides(matchId);
   if (sides.length !== expectedPoints) return { error: STALE };
@@ -216,9 +222,11 @@ export async function confirmLiveResult(
       winnerId: state.matchWinner === 1 ? match.entry1Id! : match.entry2Id!,
       games,
       startedAt,
+      actualEnd,
     },
     { keepLivePoints: true },
   );
+  await cascadeRescheduleAfterMatch(matchId, actualEnd);
   revalidateTournament(match.event.tournament.slug);
   return {};
 }

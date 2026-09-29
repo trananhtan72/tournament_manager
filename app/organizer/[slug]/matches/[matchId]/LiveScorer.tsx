@@ -17,6 +17,7 @@ import { CopyLinkButton } from "@/components/CopyLinkButton";
 import { CourtSelect } from "@/components/CourtSelect";
 import { gamesToWin, type GameFormat } from "@/lib/tournament/gameFormat";
 import { replayPoints, type Side } from "@/lib/tournament/liveScoring";
+import { dateTimeLocalFromDevice } from "@/lib/tournament/schedule";
 
 function GamePips({ won, needed }: { won: number; needed: number }) {
   return (
@@ -133,7 +134,7 @@ export function LiveScorer({
 
   function confirmResult() {
     startFinishing(async () => {
-      const result = await confirmLiveResult(matchId, pointsRef.current.length, startedAt);
+      const result = await confirmLiveResult(matchId, pointsRef.current.length, startedAt, dateTimeLocalFromDevice());
       if (result.error) {
         setError(result.error);
         return;

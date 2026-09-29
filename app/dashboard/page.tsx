@@ -10,8 +10,17 @@ import { MatchCard } from "@/components/Bracket";
 import { toBracketMatchView } from "@/lib/matchView";
 import { AutoRefresh } from "@/components/AutoRefresh";
 import { isLiveMatch, loadLiveStates } from "@/lib/liveMatches";
+import { estimateTournamentSchedule } from "@/lib/scheduleEstimates";
 import { gameFormatForMatch } from "@/lib/tournament/gameFormat";
-import { formatScheduleLabel, formatStartedLabel, knockoutRoundCount, sortSchedule, stageLabel } from "@/lib/tournament/schedule";
+import {
+  formatEstimatedLabel,
+  formatScheduleLabel,
+  formatStartedLabel,
+  knockoutRoundCount,
+  sortSchedule,
+  stageLabel,
+} from "@/lib/tournament/schedule";
+import type { ScheduleEstimate } from "@/lib/tournament/schedule";
 import {
   confirmPartnerInvite,
   declinePartnerInvite,
@@ -51,11 +60,17 @@ type MyMatchRow = {
   };
   stage: string;
   view: React.ComponentProps<typeof MatchCard>["match"];
+  estimate?: ScheduleEstimate;
 };
 
 function MyMatchItem({ row, emptyTimeLabel }: { row: MyMatchRow; emptyTimeLabel: string | null }) {
-  const { match, stage, view } = row;
-  const timeLabel = (match.status !== null ? formatStartedLabel(match.startedAt) : null) ?? formatScheduleLabel(match) ?? emptyTimeLabel;
+  const { match, stage, view, estimate } = row;
+  const estimatedLabel = estimate ? formatEstimatedLabel(estimate.estimatedStart, estimate.queueDepth) : null;
+  const timeLabel =
+    (match.status !== null ? formatStartedLabel(match.startedAt) : null) ??
+    formatScheduleLabel(match) ??
+    estimatedLabel ??
+    emptyTimeLabel;
   return (
     <li className="flex flex-col gap-2 rounded-md border border-border px-4 py-3 sm:flex-row sm:items-center sm:gap-4">
       <div className="flex min-w-0 flex-col gap-0.5 text-sm sm:w-64">
@@ -112,6 +127,15 @@ export default async function DashboardPage() {
     },
   });
   const liveStates = await loadLiveStates(myMatchRecords, (m) => gameFormatForMatch(m.event, m));
+
+  // A player can be entered in more than one tournament at once, so estimate
+  // each one separately and merge — the estimator only ever reasons about a
+  // single tournament's courts and players.
+  const tournamentIds = [...new Set(myMatchRecords.map((m) => m.event.tournament.id))];
+  const estimateMaps = await Promise.all(tournamentIds.map((id) => estimateTournamentSchedule(id)));
+  const estimateByMatchId = new Map<string, ScheduleEstimate>();
+  for (const map of estimateMaps) for (const [matchId, estimate] of map) estimateByMatchId.set(matchId, estimate);
+
   const myMatches = myMatchRecords.map((match) => ({
     match,
     stage: stageLabel(
@@ -122,6 +146,7 @@ export default async function DashboardPage() {
       showSchedule: false,
       live: liveStates.get(match.id) ?? null,
     }),
+    estimate: estimateByMatchId.get(match.id),
   }));
   const upcomingMatches = myMatches.filter((r) => r.match.status === null);
   // Timed matches first in play order, then the ones still waiting for a slot.

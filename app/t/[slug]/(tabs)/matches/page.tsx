@@ -3,6 +3,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
 import { MatchCard } from "@/components/Bracket";
+import { ViewTabs } from "@/components/ViewTabs";
 import { toBracketMatchView } from "@/lib/matchView";
 import { AutoRefresh } from "@/components/AutoRefresh";
 import { isLiveMatch, loadLiveStates } from "@/lib/liveMatches";
@@ -10,6 +11,7 @@ import { tournamentPhase } from "@/lib/tournamentPhase";
 import { tournamentTabMetadata } from "@/lib/tournamentMetadata";
 import { gameFormatForMatch } from "@/lib/tournament/gameFormat";
 import {
+  courtColumns,
   formatDayHeading,
   formatTimeOfDay,
   groupByDay,
@@ -22,8 +24,10 @@ export function generateMetadata({ params }: PageProps<"/t/[slug]/matches">): Pr
   return tournamentTabMetadata(params, "Matches");
 }
 
-export default async function MatchesTab({ params }: PageProps<"/t/[slug]/matches">) {
+export default async function MatchesTab({ params, searchParams }: PageProps<"/t/[slug]/matches">) {
   const { slug } = await params;
+  const { view: rawView } = await searchParams;
+  const gridView = rawView === "grid";
 
   const tournament = await prisma.tournament.findUnique({
     where: { slug },
@@ -126,9 +130,17 @@ export default async function MatchesTab({ params }: PageProps<"/t/[slug]/matche
   return (
     <div className="flex flex-col gap-8">
       <AutoRefresh intervalMs={refreshMs} />
-      <p className="text-sm text-muted">
-        {playable.length} {playable.length === 1 ? "match" : "matches"} · times are local to the venue
-      </p>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-sm text-muted">
+          {playable.length} {playable.length === 1 ? "match" : "matches"} · times are local to the venue
+        </p>
+        <ViewTabs
+          options={[
+            { value: "list", label: "List view" },
+            { value: "grid", label: "Grid view" },
+          ]}
+        />
+      </div>
 
       {liveNow.length > 0 && (
         <section className="flex flex-col gap-3" aria-labelledby="live-now-heading">
@@ -166,36 +178,72 @@ export default async function MatchesTab({ params }: PageProps<"/t/[slug]/matche
         <p className="text-sm text-muted">The schedule hasn&apos;t been set yet. Check back soon.</p>
       )}
 
-      {days.map((day) => (
-        <section key={day.day} className="flex flex-col gap-3">
-          <h2 className="text-lg font-semibold">{formatDayHeading(day.date)}</h2>
-          <ul className="flex flex-col gap-2">
-            {day.items.map((item) => (
-              <li
-                key={item.match.id}
-                className="flex flex-col gap-2 rounded-md border border-border px-4 py-3 sm:flex-row sm:items-center sm:gap-4"
-              >
-                <div className="flex shrink-0 items-baseline gap-2 sm:w-28 sm:flex-col sm:items-start sm:gap-0">
-                  <span className="font-semibold tabular-nums">{formatTimeOfDay(item.scheduledAt)}</span>
-                  {item.court && (
-                    <span className="text-sm text-muted">{item.court}</span>
-                  )}
-                  {item.match.status !== null && item.match.startedAt && (
-                    <span className="text-xs text-muted">Started {formatTimeOfDay(item.match.startedAt)}</span>
-                  )}
+      {days.map((day) =>
+        gridView ? (
+          <section key={day.day} className="flex flex-col gap-3">
+            <h2 className="text-lg font-semibold">{formatDayHeading(day.date)}</h2>
+            <div className="flex gap-4 overflow-x-auto pb-2">
+              {courtColumns(day.items).map((column) => (
+                <div key={column.court} className="flex w-72 shrink-0 flex-col gap-2">
+                  <h3 className="text-sm font-semibold text-text">{column.court}</h3>
+                  <ul className="flex flex-col gap-2">
+                    {column.items.map((item) => (
+                      <li key={item.match.id} className="flex flex-col gap-2 rounded-md border border-border px-3 py-2.5">
+                        <div className="flex items-baseline gap-2 text-xs">
+                          <span className="font-semibold tabular-nums">
+                            {item.match.status === null && "est. "}
+                            {formatTimeOfDay(item.scheduledAt)}
+                          </span>
+                          {item.match.status !== null && item.match.startedAt && (
+                            <span className="text-muted">Started {formatTimeOfDay(item.match.startedAt)}</span>
+                          )}
+                        </div>
+                        <MatchCard match={item.view} />
+                        <div className="text-xs text-muted">
+                          <Link href={`/t/${slug}/${item.eventId}`} className="underline">
+                            {item.eventName}
+                          </Link>
+                          <span> · {item.stage}</span>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
                 </div>
-                <MatchCard match={item.view} />
-                <div className="text-sm text-muted">
-                  <Link href={`/t/${slug}/${item.eventId}`} className="underline">
-                    {item.eventName}
-                  </Link>
-                  <span> · {item.stage}</span>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </section>
-      ))}
+              ))}
+            </div>
+          </section>
+        ) : (
+          <section key={day.day} className="flex flex-col gap-3">
+            <h2 className="text-lg font-semibold">{formatDayHeading(day.date)}</h2>
+            <ul className="flex flex-col gap-2">
+              {day.items.map((item) => (
+                <li
+                  key={item.match.id}
+                  className="flex flex-col gap-2 rounded-md border border-border px-4 py-3 sm:flex-row sm:items-center sm:gap-4"
+                >
+                  <div className="flex shrink-0 items-baseline gap-2 sm:w-28 sm:flex-col sm:items-start sm:gap-0">
+                    <span className="font-semibold tabular-nums">
+                      {item.match.status === null && "est. "}
+                      {formatTimeOfDay(item.scheduledAt)}
+                    </span>
+                    {item.court && <span className="text-sm text-muted">{item.court}</span>}
+                    {item.match.status !== null && item.match.startedAt && (
+                      <span className="text-xs text-muted">Started {formatTimeOfDay(item.match.startedAt)}</span>
+                    )}
+                  </div>
+                  <MatchCard match={item.view} />
+                  <div className="text-sm text-muted">
+                    <Link href={`/t/${slug}/${item.eventId}`} className="underline">
+                      {item.eventName}
+                    </Link>
+                    <span> · {item.stage}</span>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </section>
+        ),
+      )}
 
       {unscheduled.length > 0 && (
         <section className="flex flex-col gap-4">

@@ -116,7 +116,7 @@ export default async function CourtDisplayPage({ params }: PageProps<"/t/[slug]/
             ? {
                 names: namesOf(next),
                 eventLine: eventLineFor(next),
-                when: `${formatDayHeading(next.scheduledAt)}, ${formatTimeOfDay(next.scheduledAt)}`,
+                when: `est. ${formatDayHeading(next.scheduledAt)}, ${formatTimeOfDay(next.scheduledAt)}`,
               }
             : null
         }
