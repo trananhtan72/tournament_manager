@@ -5,7 +5,7 @@ import { entryDisplayName } from "@/lib/playerDisplay";
 import { gameFormatForMatch } from "@/lib/tournament/gameFormat";
 import { courtName } from "@/lib/tournament/courts";
 import { pickCourtDisplay } from "@/lib/tournament/courtDisplay";
-import { formatDayHeading, formatTimeOfDay, knockoutRoundCount, stageLabel } from "@/lib/tournament/schedule";
+import { formatDayHeading, formatElapsedDuration, formatTimeOfDay, knockoutRoundCount, stageLabel } from "@/lib/tournament/schedule";
 import { isLiveMatch, loadLiveStates } from "@/lib/liveMatches";
 import { CourtDisplayShell } from "@/app/t/[slug]/court/[court]/CourtDisplayShell";
 import { CourtScoreboard, CourtWaiting, type Board } from "@/app/t/[slug]/court/[court]/CourtScoreboard";
@@ -56,7 +56,8 @@ export default async function CourtDisplayPage({ params }: PageProps<"/t/[slug]/
   });
 
   const liveStates = await loadLiveStates(matches, (m) => gameFormatForMatch(m.event, m));
-  const choice = pickCourtDisplay(matches, new Date());
+  const now = new Date();
+  const choice = pickCourtDisplay(matches, now);
   const anyLive = matches.some(isLiveMatch);
 
   const eventLineFor = (m: (typeof matches)[number]) =>
@@ -88,6 +89,11 @@ export default async function CourtDisplayPage({ params }: PageProps<"/t/[slug]/
           : null,
         winnerSide: null,
         note: null,
+        // liveStartedAt is a genuine instant (set from the server's own clock
+        // when scoring began), not the "floating" venue-local time scheduledAt
+        // and startedAt use — safe to diff directly against the server's own
+        // "now" regardless of what time zone either machine is actually in.
+        elapsed: m.liveStartedAt ? formatElapsedDuration(now.getTime() - m.liveStartedAt.getTime()) : null,
       };
     } else {
       const games = m.games.map((g) => ({ score1: g.entry1Score, score2: g.entry2Score }));
@@ -100,6 +106,7 @@ export default async function CourtDisplayPage({ params }: PageProps<"/t/[slug]/
         flag: null,
         winnerSide: m.winnerId === m.entry1?.id ? 1 : m.winnerId === m.entry2?.id ? 2 : null,
         note: m.status === "WALKOVER" ? "Walkover" : m.status === "RETIRED" ? "Retired" : null,
+        elapsed: null,
       };
     }
     content = (

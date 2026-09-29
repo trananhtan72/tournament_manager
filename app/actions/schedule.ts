@@ -77,7 +77,7 @@ export async function setMatchSchedule(
   return { saved: true };
 }
 
-export type BulkScheduleActionState = { error?: string; scheduledCount?: number };
+export type BulkScheduleActionState = { error?: string; scheduledCount?: number; resetCount?: number };
 
 const bulkScheduleSchema = z.object({
   date: z.string().trim().min(1, "Enter a date"),
@@ -88,6 +88,26 @@ const bulkScheduleSchema = z.object({
 
 const playerKeysFor = (entry: { players: { userId: string | null }[] } | null): readonly string[] =>
   entry ? entry.players.map((p) => p.userId).filter((id): id is string => id !== null) : [];
+
+/**
+ * One form, two things it can do with the checked matches — distinguished by
+ * which submit button fired it (the "intent" field), the same way
+ * StartLiveForm tells its two buttons apart. A form can only cleanly bind to
+ * one server action at a time (a second useActionState wired to a sibling
+ * button's formAction was tried first and silently dropped every submission
+ * — Next's server-action wiring doesn't reliably support two different bound
+ * actions sharing one form), so both paths go through this single action.
+ */
+export async function bulkScheduleMatches(
+  tournamentId: string,
+  prevState: BulkScheduleActionState,
+  formData: FormData,
+): Promise<BulkScheduleActionState> {
+  if (String(formData.get("intent") ?? "schedule") === "reset") {
+    return resetScheduledMatches(tournamentId, prevState, formData);
+  }
+  return scheduleCheckedMatches(tournamentId, formData);
+}
 
 /**
  * Assigns (or reassigns) a start time and court to the checked matches for
@@ -104,11 +124,7 @@ const playerKeysFor = (entry: { players: { userId: string | null }[] } | null): 
  * Court assignment similarly schedules around any other same-day match that's
  * already pinned to a numbered court, rather than double-booking it.
  */
-export async function bulkScheduleMatches(
-  tournamentId: string,
-  _prevState: BulkScheduleActionState,
-  formData: FormData,
-): Promise<BulkScheduleActionState> {
+async function scheduleCheckedMatches(tournamentId: string, formData: FormData): Promise<BulkScheduleActionState> {
   const userId = await requireUserId();
 
   const tournament = await prisma.tournament.findUnique({ where: { id: tournamentId } });
@@ -288,4 +304,68 @@ export async function bulkScheduleMatches(
   revalidateTournament(tournament.slug);
   revalidatePath("/dashboard");
   return { scheduledCount: ordered.length };
+}
+
+/**
+ * Clears scheduledAt and court for the checked matches — the counterpart to
+ * "Schedule checked matches", for when a picked date/time turns out wrong and
+ * the organizer would rather start those matches over from blank than edit
+ * each one individually below.
+ */
+async function resetScheduledMatches(
+  tournamentId: string,
+  _prevState: BulkScheduleActionState,
+  formData: FormData,
+): Promise<BulkScheduleActionState> {
+  const userId = await requireUserId();
+
+  const tournament = await prisma.tournament.findUnique({ where: { id: tournamentId } });
+  if (!tournament || tournament.organizerId !== userId) {
+    return { error: "Tournament not found." };
+  }
+
+  const matchIds = formData
+    .getAll("matchIds")
+    .map(String)
+    .filter((id) => id !== "");
+  if (matchIds.length === 0) {
+    return { error: "Select at least one match to unschedule." };
+  }
+
+  const matches = await prisma.match.findMany({
+    where: { id: { in: matchIds }, event: { tournamentId }, isBye: false, status: null },
+    select: { id: true },
+  });
+  if (matches.length === 0) {
+    return { error: "None of the selected matches can be unscheduled — they've already been played, or are byes." };
+  }
+
+  await prisma.match.updateMany({
+    where: { id: { in: matches.map((m) => m.id) } },
+    data: { scheduledAt: null, court: null },
+  });
+
+  revalidateTournament(tournament.slug);
+  revalidatePath("/dashboard");
+  return { resetCount: matches.length };
+}
+
+/**
+ * Clears scheduledAt and court for every not-yet-played match in the
+ * tournament — for throwing out the whole plan and starting over, rather than
+ * checking every match individually.
+ */
+export async function resetAllSchedules(tournamentId: string): Promise<void> {
+  const userId = await requireUserId();
+
+  const tournament = await prisma.tournament.findUnique({ where: { id: tournamentId } });
+  if (!tournament || tournament.organizerId !== userId) return;
+
+  await prisma.match.updateMany({
+    where: { event: { tournamentId }, isBye: false, status: null },
+    data: { scheduledAt: null, court: null },
+  });
+
+  revalidateTournament(tournament.slug);
+  revalidatePath("/dashboard");
 }

@@ -31,8 +31,7 @@ export function BulkScheduleForm({
   firstDay: string;
   lastDay: string;
 }) {
-  const action = bulkScheduleMatches.bind(null, tournamentId);
-  const [state, formAction] = useActionState(action, initialState);
+  const [state, formAction] = useActionState(bulkScheduleMatches.bind(null, tournamentId), initialState);
   const formRef = useRef<HTMLFormElement>(null);
 
   const toggleEvent = (eventId: string, checked: boolean) => {
@@ -102,11 +101,21 @@ export function BulkScheduleForm({
         ))}
       </div>
 
-      <div className="flex items-center gap-3">
-        <SubmitButton pendingLabel="Scheduling…">Schedule checked matches</SubmitButton>
+      <div className="flex flex-wrap items-center gap-3">
+        <SubmitButton name="intent" value="schedule" pendingLabel="Scheduling…">
+          Schedule checked matches
+        </SubmitButton>
+        <SubmitButton name="intent" value="reset" variant="secondary" formNoValidate pendingLabel="Unscheduling…">
+          Unschedule checked matches
+        </SubmitButton>
         {state.scheduledCount !== undefined && (
           <span className="text-sm text-success">
             Set the time for {state.scheduledCount} {state.scheduledCount === 1 ? "match" : "matches"}.
+          </span>
+        )}
+        {state.resetCount !== undefined && (
+          <span className="text-sm text-success">
+            Cleared the time for {state.resetCount} {state.resetCount === 1 ? "match" : "matches"}.
           </span>
         )}
       </div>

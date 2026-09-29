@@ -104,6 +104,23 @@ export function formatStartedLabel(startedAt: Date | null): string | null {
   return `Started ${shortDayFormatter.format(startedAt)} · ${formatTimeOfDay(startedAt)}`;
 }
 
+/**
+ * "12:34" (or "1:02:34" past an hour) for how long a live match has been
+ * going. Unlike scheduledAt/startedAt, this is meant to be computed from two
+ * genuine instants (e.g. `Date.now() - match.liveStartedAt.getTime()`), not
+ * the "floating" venue-local convention the rest of this file uses — a
+ * negative or otherwise malformed value floors to "0:00" rather than
+ * displaying nonsense.
+ */
+export function formatElapsedDuration(elapsedMs: number): string {
+  const totalSeconds = Math.max(0, Math.floor(elapsedMs / 1000));
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return hours > 0 ? `${hours}:${pad(minutes)}:${pad(seconds)}` : `${minutes}:${pad(seconds)}`;
+}
+
 /** Natural order ("Court 2" before "Court 10"); matches without a court go last. */
 export function compareCourts(a: string | null, b: string | null): number {
   if (a === b) return 0;

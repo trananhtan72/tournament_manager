@@ -9,6 +9,8 @@ import { dayKey, formatScheduleLabel, knockoutRoundCount, stageLabel, toDateTime
 import { MatchScheduleForm } from "@/app/organizer/[slug]/schedule/MatchScheduleForm";
 import { BulkScheduleForm, type BulkScheduleEventGroup } from "@/app/organizer/[slug]/schedule/BulkScheduleForm";
 import { MatchRefereeForm } from "@/app/organizer/[slug]/referees/MatchRefereeForm";
+import { resetAllSchedules } from "@/app/actions/schedule";
+import { ActionForm } from "@/components/ActionForm";
 
 export const metadata: Metadata = { title: "Match schedule" };
 
@@ -137,6 +139,18 @@ export default async function OrganizerSchedulePage({
             firstDay={firstDay}
             lastDay={lastDay}
           />
+          {scheduledCount > 0 && (
+            <div className="flex items-center gap-3 border-t border-border pt-4">
+              <p className="text-sm text-muted">Want to throw out the whole plan and start over?</p>
+              <ActionForm
+                action={resetAllSchedules.bind(null, tournament.id)}
+                label="Unschedule all matches"
+                variant="danger"
+                pendingLabel="Unscheduling…"
+                confirmMessage={`Clear the time and court for all ${scheduledCount} scheduled match${scheduledCount === 1 ? "" : "es"}? This can't be undone — you'll need to re-export or set times individually afterward.`}
+              />
+            </div>
+          )}
         </section>
       )}
 

@@ -22,6 +22,8 @@ export type Board = {
   winnerSide: 1 | 2 | null;
   /** "Walkover" / "Retired" for results that weren't played out. */
   note: string | null;
+  /** "12:34" — how long the match has been live (live only), pre-formatted by formatElapsedDuration. */
+  elapsed: string | null;
 };
 
 const small = "[font-size:min(3vh,2.2vw)]";
@@ -141,6 +143,7 @@ export function CourtScoreboard({
               <span className="inline-block animate-pulse rounded-full bg-red-500" style={{ width: "min(2.4vh,1.8vw)", height: "min(2.4vh,1.8vw)" }} />
               LIVE
             </span>
+            {board.elapsed && <span className="tabular-nums text-white/70">{board.elapsed}</span>}
             {gameLabel && <span>{gameLabel}</span>}
             {board.flag && <span className="rounded-full bg-amber-400 px-[2vmin] py-[0.4vh] text-black">{board.flag}</span>}
           </>
