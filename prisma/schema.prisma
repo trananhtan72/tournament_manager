@@ -18,6 +18,7 @@ model User {
   tournaments   Tournament[]
   refereeRoles  TournamentReferee[]
   entryPlayers  EntryPlayer[]
+  payments      TournamentPayment[]
   notifications Notification[]
 }
 
@@ -60,6 +61,7 @@ model Tournament {
   organizer            User                @relation(fields: [organizerId], references: [id])
   events               Event[]
   referees             TournamentReferee[]
+  payments             TournamentPayment[]
   createdAt            DateTime            @default(now())
   updatedAt            DateTime            @updatedAt
 
@@ -171,6 +173,41 @@ model EntryPlayer {
   createdAt DateTime        @default(now())
 
   @@unique([eventId, userId])
+}
+
+// One athlete's payment record for a whole tournament (every event they've
+// entered), not per event-registration — an athlete typically pays once,
+// covering however many events they signed up for. Identified by a
+// registered user's id when known, else by matching guest name within the
+// tournament: guests have no stable cross-entry identity anywhere else in
+// this app either (see schedule.ts's rest-constraint handling), so two
+// different guests sharing a name would be (incorrectly) treated as the same
+// payer — an accepted, known limitation. Organizer-only; created the first
+// time the organizer sets anything for that athlete.
+model TournamentPayment {
+  id           String         @id @default(cuid())
+  tournamentId String
+  tournament   Tournament     @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  userId       String?
+  user         User?          @relation(fields: [userId], references: [id])
+  guestName    String?
+  amount       Decimal?       @db.Decimal(10, 2)
+  method       PaymentMethod?
+  note         String?
+  // Set the moment the organizer clicks "Pay" (the organizer's own device
+  // clock, same floating convention used elsewhere); null means not yet paid.
+  paidAt       DateTime?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  @@unique([tournamentId, userId])
+  @@unique([tournamentId, guestName])
+}
+
+enum PaymentMethod {
+  CASH
+  ZELLE
+  OTHER
 }
 
 enum MatchStatus {

@@ -41,6 +41,7 @@ export default async function OrganizerTournamentLayout({
           { label: "Overview", href: base, exact: true },
           { label: "Events", href: `${base}/events` },
           { label: "Manage entries", href: `${base}/entries`, badge: pendingApproval },
+          { label: "Payments", href: `${base}/payments` },
           { label: "Match center", href: `${base}/matches`, alsoActiveFor: [`${base}/schedule`] },
           { label: "Draws", href: `${base}/draws` },
           { label: "Referees", href: `${base}/referees` },

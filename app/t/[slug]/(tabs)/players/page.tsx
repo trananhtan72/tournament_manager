@@ -1,8 +1,10 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
+import { formatDate } from "@/lib/formatDate";
 import { tournamentTabMetadata } from "@/lib/tournamentMetadata";
 import { buildPlayerDirectory } from "@/lib/tournament/playerDirectory";
+import { effectiveWithdrawalDeadline, withdrawalIsOpen } from "@/lib/registrationDeadline";
 import { PlayersList } from "@/app/t/[slug]/(tabs)/players/PlayersList";
 
 export function generateMetadata({ params }: PageProps<"/t/[slug]/players">): Promise<Metadata> {
@@ -27,6 +29,18 @@ export default async function PlayersTab({ params }: PageProps<"/t/[slug]/player
     },
   });
   if (!tournament) notFound();
+
+  // Hidden (not just off the tab bar — also direct links) while entries could
+  // still change, so registrants can't size up the field and get discouraged
+  // from signing up.
+  if (withdrawalIsOpen(tournament)) {
+    return (
+      <p className="text-sm text-muted">
+        The player list will be available once registration and withdrawals close on{" "}
+        {formatDate(effectiveWithdrawalDeadline(tournament))}.
+      </p>
+    );
+  }
 
   // Names only: emails stay private to the organizer.
   const players = buildPlayerDirectory(

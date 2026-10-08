@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { formatDate } from "@/lib/formatDate";
 import { TabNav } from "@/components/TabNav";
+import { withdrawalIsOpen } from "@/lib/registrationDeadline";
 
 export default async function TournamentTabsLayout({
   children,
@@ -11,9 +12,20 @@ export default async function TournamentTabsLayout({
 
   const tournament = await prisma.tournament.findUnique({
     where: { slug },
-    select: { name: true, venue: true, startDate: true, endDate: true },
+    select: {
+      name: true,
+      venue: true,
+      startDate: true,
+      endDate: true,
+      registrationDeadline: true,
+      withdrawalDeadline: true,
+    },
   });
   if (!tournament) notFound();
+
+  // Hidden while entries could still change, so registrants can't size up how
+  // strong the field is and get discouraged from signing up.
+  const showPlayersTab = !withdrawalIsOpen(tournament);
 
   return (
     <div className="mx-auto flex w-full max-w-4xl flex-col gap-6">
@@ -30,7 +42,7 @@ export default async function TournamentTabsLayout({
           { label: "Events", href: `/t/${slug}/events` },
           { label: "Draws", href: `/t/${slug}/draws` },
           { label: "Matches", href: `/t/${slug}/matches` },
-          { label: "Players", href: `/t/${slug}/players` },
+          ...(showPlayersTab ? [{ label: "Players", href: `/t/${slug}/players` }] : []),
         ]}
       />
       {children}
