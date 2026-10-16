@@ -406,6 +406,39 @@ export function formatEstimatedLabel(estimatedStart: Date, queueDepth: number): 
   return `~${formatTimeOfDay(estimatedStart)} (± ${estimatedRangeMinutes(queueDepth)} min)`;
 }
 
+export type QueueResequenceInput = { matchId: string; scheduledAt: Date };
+
+/**
+ * Recomputes start times for one court's queue after the organizer drags it
+ * into a new order — inferred from the existing schedule rather than new
+ * input: the match now first keeps its own current time as the anchor, and
+ * every match after it is spaced out by the gap between the first two
+ * matches in the queue's *original* (pre-drag) chronological order. Falls
+ * back to `DEFAULT_MATCH_DURATION_MINUTES` when that gap can't be determined
+ * (fewer than two timed matches, or a non-positive gap). `newOrder` entries
+ * not present in `current` are ignored.
+ */
+export function resequenceQueueTimes(
+  current: readonly QueueResequenceInput[],
+  newOrder: readonly string[],
+): Map<string, Date> {
+  const byId = new Map(current.map((c) => [c.matchId, c]));
+  const orderedIds = newOrder.filter((id) => byId.has(id));
+  const result = new Map<string, Date>();
+  if (orderedIds.length === 0) return result;
+
+  const original = [...current].sort((a, b) => a.scheduledAt.getTime() - b.scheduledAt.getTime());
+  let durationMs = DEFAULT_MATCH_DURATION_MINUTES * 60_000;
+  if (original.length >= 2) {
+    const gap = original[1].scheduledAt.getTime() - original[0].scheduledAt.getTime();
+    if (gap > 0) durationMs = gap;
+  }
+
+  const anchor = byId.get(orderedIds[0])!.scheduledAt.getTime();
+  orderedIds.forEach((id, i) => result.set(id, new Date(anchor + i * durationMs)));
+  return result;
+}
+
 export type CourtScheduleMatchInput = {
   matchId: string;
   /** Registered-player identity keys for each side, combined (a guest or TBD side contributes none). */

@@ -6,7 +6,13 @@ import { revalidateTournament } from "@/lib/revalidate";
 import { prisma } from "@/lib/prisma";
 import { requireUserId } from "@/lib/session";
 import { formatDate } from "@/lib/formatDate";
-import { dayKey, distributeAcrossCourts, isWithinTournamentDays, parseDateTimeLocal } from "@/lib/tournament/schedule";
+import {
+  dayKey,
+  distributeAcrossCourts,
+  isWithinTournamentDays,
+  parseDateTimeLocal,
+  resequenceQueueTimes,
+} from "@/lib/tournament/schedule";
 import { courtName, parseCourtNumber } from "@/lib/tournament/courts";
 
 export type ScheduleActionState = { error?: string; saved?: boolean };
@@ -348,6 +354,71 @@ async function resetScheduledMatches(
   revalidateTournament(tournament.slug);
   revalidatePath("/dashboard");
   return { resetCount: matches.length };
+}
+
+export type RecalculateQueueActionState = { error?: string; updatedCount?: number };
+
+const queuesSchema = z.array(z.object({ matchIds: z.array(z.string().min(1)).min(1) }));
+
+/**
+ * After the organizer drags matches into a new order within one or more
+ * courts' queues (on the schedule page's per-court board), recomputes each
+ * reordered queue's times — one `resequenceQueueTimes` call per queue, so a
+ * drag in one court's queue never touches another's times. Only matches that
+ * still have a time and haven't been played are eligible; anything else
+ * named in a queue (played in the meantime, unscheduled) is silently skipped
+ * rather than failing the whole request.
+ */
+export async function recalculateQueueTimes(
+  tournamentId: string,
+  _prevState: RecalculateQueueActionState,
+  formData: FormData,
+): Promise<RecalculateQueueActionState> {
+  const userId = await requireUserId();
+
+  const tournament = await prisma.tournament.findUnique({ where: { id: tournamentId } });
+  if (!tournament || tournament.organizerId !== userId) {
+    return { error: "Tournament not found." };
+  }
+
+  let queues: { matchIds: string[] }[];
+  try {
+    queues = queuesSchema.parse(JSON.parse(String(formData.get("queues") ?? "[]")));
+  } catch {
+    return { error: "Couldn't read the reordered queues. Reload the page and try again." };
+  }
+  if (queues.length === 0) {
+    return { error: "Drag a match to reorder a court's queue first, then try again." };
+  }
+
+  const allIds = [...new Set(queues.flatMap((q) => q.matchIds))];
+  const matches = await prisma.match.findMany({
+    where: { id: { in: allIds }, event: { tournamentId }, isBye: false, status: null, scheduledAt: { not: null } },
+    select: { id: true, scheduledAt: true },
+  });
+  const byId = new Map(matches.map((m) => [m.id, m]));
+
+  const updates = new Map<string, Date>();
+  for (const queue of queues) {
+    const current = queue.matchIds.flatMap((id) => {
+      const scheduledAt = byId.get(id)?.scheduledAt;
+      return scheduledAt ? [{ matchId: id, scheduledAt }] : [];
+    });
+    for (const [matchId, scheduledAt] of resequenceQueueTimes(current, queue.matchIds)) {
+      updates.set(matchId, scheduledAt);
+    }
+  }
+  if (updates.size === 0) {
+    return { error: "None of those matches could be rescheduled — they may have been played or unscheduled already." };
+  }
+
+  await prisma.$transaction(
+    [...updates.entries()].map(([id, scheduledAt]) => prisma.match.update({ where: { id }, data: { scheduledAt } })),
+  );
+
+  revalidateTournament(tournament.slug);
+  revalidatePath("/dashboard");
+  return { updatedCount: updates.size };
 }
 
 /**

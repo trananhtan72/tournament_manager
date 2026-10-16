@@ -5,10 +5,20 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { entryDisplayName } from "@/lib/playerDisplay";
 import { formatDate } from "@/lib/formatDate";
-import { dayKey, formatScheduleLabel, knockoutRoundCount, stageLabel, toDateTimeLocal } from "@/lib/tournament/schedule";
-import { MatchScheduleForm } from "@/app/organizer/[slug]/schedule/MatchScheduleForm";
+import {
+  courtColumns,
+  dayKey,
+  formatDayHeading,
+  formatScheduleLabel,
+  formatTimeOfDay,
+  groupByDay,
+  knockoutRoundCount,
+  sortSchedule,
+  stageLabel,
+  toDateTimeLocal,
+} from "@/lib/tournament/schedule";
 import { BulkScheduleForm, type BulkScheduleEventGroup } from "@/app/organizer/[slug]/schedule/BulkScheduleForm";
-import { MatchRefereeForm } from "@/app/organizer/[slug]/referees/MatchRefereeForm";
+import { ScheduleQueueBoard, type DaySection, type QueueMatch } from "@/app/organizer/[slug]/schedule/ScheduleQueueBoard";
 import { resetAllSchedules } from "@/app/actions/schedule";
 import { ActionForm } from "@/components/ActionForm";
 
@@ -53,47 +63,100 @@ export default async function OrganizerSchedulePage({
   const firstDay = dayKey(tournament.startDate);
   const lastDay = dayKey(tournament.endDate);
 
-  const events = tournament.events
-    .map((event) => {
-      const knockoutRounds = knockoutRoundCount(event.matches);
-      const poolNames = new Map(event.pools.map((p) => [p.id, p.name]));
-      const stageFor = (match: { poolId: string | null; round: number }) =>
-        stageLabel(
-          { poolName: match.poolId ? (poolNames.get(match.poolId) ?? null) : null, round: match.round },
-          { drawFormat: event.drawFormat, knockoutRounds },
-        );
-      const groups = new Map<string, { title: string; matches: typeof event.matches }>();
-      for (const match of event.matches) {
-        if (match.isBye) continue;
-        const title = stageFor(match);
-        const group = groups.get(title) ?? { title, matches: [] };
-        group.matches.push(match);
-        groups.set(title, group);
-      }
-      const schedulable: BulkScheduleEventGroup = {
-        eventId: event.id,
-        eventName: event.name,
-        matches: event.matches
-          .filter((m) => !m.isBye && m.status === null)
-          .map((m) => ({
-            id: m.id,
-            stage: stageFor(m),
-            label: `${m.entry1 ? entryDisplayName(m.entry1) : "TBD"} vs ${m.entry2 ? entryDisplayName(m.entry2) : "TBD"}`,
-            currentTime: formatScheduleLabel({
-              scheduledAt: m.scheduledAt,
-              court: m.court,
-              status: m.status,
-              liveStartedAt: m.liveStartedAt,
-            }),
-          })),
-      };
-      return { event, groups: [...groups.values()], schedulable };
-    })
-    .filter(({ groups }) => groups.length > 0);
+  type FlatMatch = {
+    matchId: string;
+    eventName: string;
+    stage: string;
+    label: string;
+    court: string | null;
+    scheduledAt: Date | null;
+    refereeId: string | null;
+    round: number;
+    position: number;
+    draftDraw: boolean;
+  };
 
-  const allMatches = events.flatMap(({ groups }) => groups.flatMap((g) => g.matches));
-  const scheduledCount = allMatches.filter((m) => m.scheduledAt !== null).length;
-  const schedulableByEvent = events.map(({ schedulable }) => schedulable).filter((e) => e.matches.length > 0);
+  const schedulableByEvent: BulkScheduleEventGroup[] = [];
+  const flatMatches: FlatMatch[] = [];
+
+  for (const event of tournament.events) {
+    const knockoutRounds = knockoutRoundCount(event.matches);
+    const poolNames = new Map(event.pools.map((p) => [p.id, p.name]));
+    const stageFor = (match: { poolId: string | null; round: number }) =>
+      stageLabel(
+        { poolName: match.poolId ? (poolNames.get(match.poolId) ?? null) : null, round: match.round },
+        { drawFormat: event.drawFormat, knockoutRounds },
+      );
+    const schedulableMatches = event.matches.filter((m) => !m.isBye && m.status === null);
+    if (schedulableMatches.length === 0) continue;
+
+    schedulableByEvent.push({
+      eventId: event.id,
+      eventName: event.name,
+      matches: schedulableMatches.map((m) => ({
+        id: m.id,
+        stage: stageFor(m),
+        label: `${m.entry1 ? entryDisplayName(m.entry1) : "TBD"} vs ${m.entry2 ? entryDisplayName(m.entry2) : "TBD"}`,
+        currentTime: formatScheduleLabel({
+          scheduledAt: m.scheduledAt,
+          court: m.court,
+          status: m.status,
+          liveStartedAt: m.liveStartedAt,
+        }),
+      })),
+    });
+
+    for (const m of schedulableMatches) {
+      flatMatches.push({
+        matchId: m.id,
+        eventName: event.name,
+        stage: stageFor(m),
+        label: `${m.entry1 ? entryDisplayName(m.entry1) : "TBD"} vs ${m.entry2 ? entryDisplayName(m.entry2) : "TBD"}`,
+        court: m.court,
+        scheduledAt: m.scheduledAt,
+        refereeId: m.refereeId,
+        round: m.round,
+        position: m.position,
+        draftDraw: !event.drawPublished,
+      });
+    }
+  }
+
+  const allNonByeMatches = tournament.events.flatMap((e) => e.matches.filter((m) => !m.isBye));
+  const scheduledCount = allNonByeMatches.filter((m) => m.scheduledAt !== null).length;
+  const hasAnyMatches = allNonByeMatches.length > 0;
+
+  const timed = flatMatches.filter(
+    (m): m is FlatMatch & { scheduledAt: Date } => m.scheduledAt !== null,
+  );
+  const untimed = flatMatches
+    .filter((m) => m.scheduledAt === null)
+    .sort(
+      (a, b) =>
+        a.eventName.localeCompare(b.eventName, "en", { numeric: true }) || a.round - b.round || a.position - b.position,
+    );
+
+  const toQueueMatch = (m: FlatMatch, timeLabel: string | null): QueueMatch => ({
+    matchId: m.matchId,
+    eventName: m.eventName,
+    stage: m.stage,
+    label: m.label,
+    timeLabel,
+    initialScheduledAt: m.scheduledAt ? toDateTimeLocal(m.scheduledAt) : "",
+    initialCourt: m.court ?? "",
+    refereeId: m.refereeId,
+    draftDraw: m.draftDraw,
+  });
+
+  const days: DaySection[] = groupByDay(sortSchedule(timed)).map((day) => ({
+    day: day.day,
+    heading: formatDayHeading(day.date),
+    courts: courtColumns(day.items).map((col) => ({
+      court: col.court,
+      matches: col.items.map((m) => toQueueMatch(m, formatTimeOfDay(m.scheduledAt))),
+    })),
+  }));
+  const unscheduled: QueueMatch[] = untimed.map((m) => toQueueMatch(m, null));
 
   return (
     <div className="flex flex-col gap-6">
@@ -113,14 +176,14 @@ export default async function OrganizerSchedulePage({
           ({formatDate(tournament.startDate)} – {formatDate(tournament.endDate)}). Players see the
           schedule once an event&apos;s draw is published.
         </p>
-        {allMatches.length > 0 && (
+        {allNonByeMatches.length > 0 && (
           <p className="text-sm text-muted">
-            {scheduledCount} of {allMatches.length} matches scheduled.
+            {scheduledCount} of {allNonByeMatches.length} matches scheduled.
           </p>
         )}
       </div>
 
-      {events.length > 0 && (
+      {hasAnyMatches && (
         <section className="flex flex-col gap-4 rounded-lg border border-border p-4">
           <div>
             <h2 className="text-lg font-semibold">Schedule or reschedule a day</h2>
@@ -154,74 +217,20 @@ export default async function OrganizerSchedulePage({
         </section>
       )}
 
-      {events.length === 0 ? (
+      {hasAnyMatches ? (
+        <ScheduleQueueBoard
+          tournamentId={tournament.id}
+          days={days}
+          unscheduled={unscheduled}
+          courtCount={tournament.courtCount}
+          firstDay={firstDay}
+          lastDay={lastDay}
+          refereeChoices={refereeChoices}
+        />
+      ) : (
         <p className="text-sm text-muted">
           There are no matches to schedule yet. Generate a draw for an event first.
         </p>
-      ) : (
-        events.map(({ event, groups }) => (
-          <section key={event.id} className="flex flex-col gap-4 border-t border-border pt-6">
-            <div className="flex flex-wrap items-center gap-3">
-              <h2 className="text-lg font-semibold">{event.name}</h2>
-              {!event.drawPublished && (
-                <span className="rounded-full bg-surface-muted px-2 py-0.5 text-xs font-medium text-muted">
-                  Draw not published — hidden from players
-                </span>
-              )}
-            </div>
-            {groups.map((group) => (
-              <div key={group.title} className="flex flex-col gap-2">
-                <h3 className="text-sm font-semibold text-text">{group.title}</h3>
-                <ul className="flex flex-col gap-2">
-                  {group.matches.map((match) => (
-                    <li
-                      key={match.id}
-                      className="flex flex-col gap-2 rounded-md border border-border px-4 py-3 md:flex-row md:items-center md:justify-between"
-                    >
-                      <div className="min-w-0 text-sm">
-                        <span className="font-medium">
-                          {match.entry1 ? entryDisplayName(match.entry1) : "TBD"}
-                        </span>{" "}
-                        <span className="text-muted">vs</span>{" "}
-                        <span className="font-medium">
-                          {match.entry2 ? entryDisplayName(match.entry2) : "TBD"}
-                        </span>
-                        {match.status && (
-                          <span className="ml-2 rounded-full bg-success/15 px-2 py-0.5 text-xs font-medium text-success">
-                            Played
-                          </span>
-                        )}
-                      </div>
-                      <div className="flex flex-col gap-3">
-                        <MatchScheduleForm
-                          matchId={match.id}
-                          initialScheduledAt={match.scheduledAt ? toDateTimeLocal(match.scheduledAt) : ""}
-                          initialCourt={match.court ?? ""}
-                          courtCount={tournament.courtCount}
-                          firstDay={firstDay}
-                          lastDay={lastDay}
-                        />
-                        {match.status === null ? (
-                          <MatchRefereeForm
-                            matchId={match.id}
-                            currentRefereeId={match.refereeId}
-                            referees={refereeChoices}
-                          />
-                        ) : (
-                          match.refereeId && (
-                            <p className="text-xs text-muted">
-                              Referee: {refereeChoices.find((r) => r.id === match.refereeId)?.name ?? "—"}
-                            </p>
-                          )
-                        )}
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
-          </section>
-        ))
       )}
     </div>
   );

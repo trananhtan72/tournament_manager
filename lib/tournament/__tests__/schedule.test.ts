@@ -18,6 +18,7 @@ import {
   isWithinTournamentDays,
   knockoutRoundCount,
   parseDateTimeLocal,
+  resequenceQueueTimes,
   sortSchedule,
   stageLabel,
   toDateTimeLocal,
@@ -858,5 +859,52 @@ describe("cascadeReschedule", () => {
     const roundRobinMatch = m("rr", "Court 2", "2026-12-01T09:00");
     const result = cascadeReschedule([roundRobinMatch], concluded, at("2026-12-01T09:15"), REST, 40);
     expect(result.has("rr")).toBe(false);
+  });
+});
+
+describe("resequenceQueueTimes", () => {
+  const queue = [
+    { matchId: "a", scheduledAt: at("2026-12-01T09:00") },
+    { matchId: "b", scheduledAt: at("2026-12-01T09:40") },
+    { matchId: "c", scheduledAt: at("2026-12-01T10:20") },
+  ];
+
+  it("keeps the original times when the order doesn't change", () => {
+    const result = resequenceQueueTimes(queue, ["a", "b", "c"]);
+    expect(result.get("a")).toEqual(at("2026-12-01T09:00"));
+    expect(result.get("b")).toEqual(at("2026-12-01T09:40"));
+    expect(result.get("c")).toEqual(at("2026-12-01T10:20"));
+  });
+
+  it("anchors on the new first match's own current time and reapplies the original gap", () => {
+    // c dragged to the front: keeps its own 10:20 slot, then b and a follow at the original 40-minute gap.
+    const result = resequenceQueueTimes(queue, ["c", "a", "b"]);
+    expect(result.get("c")).toEqual(at("2026-12-01T10:20"));
+    expect(result.get("a")).toEqual(at("2026-12-01T11:00"));
+    expect(result.get("b")).toEqual(at("2026-12-01T11:40"));
+  });
+
+  it("falls back to the default duration with fewer than two timed matches", () => {
+    const result = resequenceQueueTimes([{ matchId: "solo", scheduledAt: at("2026-12-01T09:00") }], ["solo"]);
+    expect(result.get("solo")).toEqual(at("2026-12-01T09:00"));
+  });
+
+  it("falls back to the default duration when the original gap isn't positive", () => {
+    const sameTime = [
+      { matchId: "a", scheduledAt: at("2026-12-01T09:00") },
+      { matchId: "b", scheduledAt: at("2026-12-01T09:00") },
+    ];
+    const result = resequenceQueueTimes(sameTime, ["a", "b"]);
+    expect(result.get("b")!.getTime() - result.get("a")!.getTime()).toBe(45 * 60_000);
+  });
+
+  it("ignores new-order entries that aren't in the current queue", () => {
+    const result = resequenceQueueTimes(queue, ["a", "ghost", "b", "c"]);
+    expect([...result.keys()]).toEqual(["a", "b", "c"]);
+  });
+
+  it("returns an empty map when the new order has no recognized matches", () => {
+    const result = resequenceQueueTimes(queue, []);
+    expect(result.size).toBe(0);
   });
 });
