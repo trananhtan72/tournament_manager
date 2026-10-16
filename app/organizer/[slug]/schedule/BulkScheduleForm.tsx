@@ -16,9 +16,11 @@ export type BulkScheduleEventGroup = {
 
 /**
  * Assigns (or reassigns) the checked matches a time and a court for one day,
- * distributed evenly across the tournament's courts and respecting each
- * player's minimum rest — for planning or revising a whole day at once
- * instead of setting each match's time and court individually below.
+ * distributed evenly across the tournament's courts — for planning or
+ * revising a whole day at once instead of setting each match's time and
+ * court individually below. Every match uses the tournament's own duration
+ * (set above); minimum rest between a player's matches is enforced but not
+ * currently configurable here.
  */
 export function BulkScheduleForm({
   tournamentId,
@@ -51,24 +53,6 @@ export function BulkScheduleForm({
       <div className="flex flex-wrap gap-3">
         <TextField label="Date" name="date" type="date" min={firstDay} max={lastDay} required />
         <TextField label="Start time" name="startTime" type="time" defaultValue="09:00" required />
-        <TextField
-          label="Minutes per match"
-          name="durationMinutes"
-          type="number"
-          min={5}
-          defaultValue={40}
-          required
-          className="w-28"
-        />
-        <TextField
-          label="Min. rest before a player's next match"
-          name="minRestMinutes"
-          type="number"
-          min={0}
-          defaultValue={10}
-          required
-          className="w-28"
-        />
       </div>
 
       <div className="flex flex-col gap-3">

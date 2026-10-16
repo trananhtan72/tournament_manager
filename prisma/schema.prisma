@@ -10,7 +10,16 @@ model User {
   id            String              @id @default(cuid())
   name          String
   email         String              @unique
-  passwordHash  String
+  // Null for an account that's only ever signed in with Google (or another
+  // future OAuth provider) — see auth.ts's Credentials authorize(), which
+  // treats a null hash as "this account has no password to check against."
+  passwordHash  String?
+  // Auth.js's Prisma adapter writes both of these on every OAuth sign-in
+  // (handle-login.js always passes emailVerified, and the Google provider's
+  // default profile mapping always passes image) — required for the adapter
+  // to create a user at all, not just nice-to-haves.
+  emailVerified DateTime?
+  image         String?
   // ADMIN can create tournaments and grant/revoke ORGANIZER access; ORGANIZER
   // can create tournaments; USER (the default) cannot. See lib/roles.ts.
   role          UserRole            @default(USER)
@@ -20,12 +29,38 @@ model User {
   entryPlayers  EntryPlayer[]
   payments      TournamentPayment[]
   notifications Notification[]
+  accounts      Account[]
 }
 
 enum UserRole {
   ADMIN
   ORGANIZER
   USER
+}
+
+// Auth.js's Prisma adapter shape for a linked OAuth account (e.g. Google) —
+// field names match exactly what @auth/prisma-adapter and the provider's
+// token mapping write, not a free choice. Only this model is needed (not
+// Session/VerificationToken/Authenticator, also part of Auth.js's "standard"
+// schema): sessions use the JWT strategy, so the adapter's session methods
+// are never called, and nothing here uses email-link or passkey sign-in.
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
 }
 
 enum EventCategory {
@@ -54,6 +89,12 @@ model Tournament {
   withdrawalDeadline   DateTime?
   // How many courts the venue has (courts are named "Court 1" … "Court N").
   courtCount           Int                 @default(12)
+  // One organizer-set duration for every match in the tournament, used
+  // wherever match timing needs an assumed length — the bulk schedule tool,
+  // the post-match cascade reschedule, and the dashboard's "next match"
+  // estimate — so they never drift apart the way separate, re-entered
+  // per-action values could.
+  matchDurationMinutes Int                 @default(45)
   // Optional rich-text regulations document: a ProseMirror doc restricted to
   // the nodes/marks in lib/regulations.ts. Players read it in a popup.
   regulations          Json?

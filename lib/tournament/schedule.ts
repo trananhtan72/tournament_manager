@@ -406,37 +406,116 @@ export function formatEstimatedLabel(estimatedStart: Date, queueDepth: number): 
   return `~${formatTimeOfDay(estimatedStart)} (± ${estimatedRangeMinutes(queueDepth)} min)`;
 }
 
-export type QueueResequenceInput = { matchId: string; scheduledAt: Date };
+/**
+ * Infers a day's grid row spacing from its own data, for `buildScheduleGrid`.
+ * The most common gap (each rounded to the nearest 5 minutes, to tolerate
+ * small jitter; smallest wins a tie) rather than, say, a GCD or an average:
+ * a day's matches are usually the same duration apart throughout, so that
+ * value simply recurs more than any other gap, including an occasional one
+ * that doesn't fit the pattern — a deliberate break between sessions (a
+ * lunch gap making one match start a non-multiple of the normal spacing
+ * after the last), or one merged gap from unscheduling or moving a match out
+ * of an otherwise evenly-spaced day. A GCD or an average both get dragged
+ * off by a single such gap; the mode ignores it as long as the normal
+ * spacing still recurs elsewhere that day. Falls back to
+ * `DEFAULT_MATCH_DURATION_MINUTES` when there's no gap to measure at all.
+ */
+export function inferSlotMinutes(matches: readonly { scheduledAt: Date }[]): number {
+  const distinctTimes = [...new Set(matches.map((m) => m.scheduledAt.getTime()))].sort((a, b) => a - b);
+  const gapMinutes: number[] = [];
+  for (let i = 0; i < distinctTimes.length - 1; i++) {
+    const rounded = Math.round((distinctTimes[i + 1] - distinctTimes[i]) / 60_000 / 5) * 5;
+    if (rounded > 0) gapMinutes.push(rounded);
+  }
+  if (gapMinutes.length === 0) return DEFAULT_MATCH_DURATION_MINUTES;
+
+  const counts = new Map<number, number>();
+  for (const g of gapMinutes) counts.set(g, (counts.get(g) ?? 0) + 1);
+  let best = gapMinutes[0];
+  let bestCount = 0;
+  for (const [gap, count] of counts) {
+    if (count > bestCount || (count === bestCount && gap < best)) {
+      best = gap;
+      bestCount = count;
+    }
+  }
+  return best;
+}
+
+export type GridMatch = { matchId: string; scheduledAt: Date; court: string };
+
+export type ScheduleGrid = {
+  /** Row i's time is `rows[i]` — a real match's own exact scheduledAt wherever one lands on that row, never rounded to some other value; only a genuinely empty row's time is interpolated. */
+  rows: Date[];
+  /** Column labels, in display order — every court passed in, plus any match's court that wasn't (kept stable; never silently dropped). */
+  courts: string[];
+  /** `${rowIndex}:${court}` → the match id(s) landing in that cell (almost always 0 or 1; more than one means a real scheduling conflict). */
+  cellsByKey: ReadonlyMap<string, readonly string[]>;
+};
 
 /**
- * Recomputes start times for one court's queue after the organizer drags it
- * into a new order — inferred from the existing schedule rather than new
- * input: the match now first keeps its own current time as the anchor, and
- * every match after it is spaced out by the gap between the first two
- * matches in the queue's *original* (pre-drag) chronological order. Falls
- * back to `DEFAULT_MATCH_DURATION_MINUTES` when that gap can't be determined
- * (fewer than two timed matches, or a non-positive gap). `newOrder` entries
- * not present in `current` are ignored.
+ * Lays out one day's matches on a time-by-court grid so matches at the same
+ * time always align horizontally, each row `slotMinutes` apart from the one
+ * before — but a row's time comes from whichever real match lands on it, not
+ * from arithmetic off a fixed start; only a row with nothing scheduled gets
+ * an interpolated time, stepping `slotMinutes` from its nearest real
+ * neighbor. This matters whenever a gap between two real matches isn't an
+ * exact multiple of `slotMinutes` (e.g. a deliberate break between sessions
+ * that's a little longer than the usual match-to-match gap): rounding every
+ * row to a fixed start/step would either mislabel that match's own row with
+ * a time it was never actually scheduled at, or throw its alignment with
+ * later rows off entirely. Here the real match always keeps its own time,
+ * and only the empty filler row(s) around the break absorb the rounding.
+ * `trailingRows` adds that many further empty rows after the day's last
+ * match, for dropping one into a new, later slot. Columns are every one of
+ * `knownCourts` (even ones with nothing scheduled that day, so a gap reads
+ * as empty space rather than disappearing), in the order given. `matches`
+ * must be non-empty — callers only build a day's grid once it has at least
+ * one scheduled match.
  */
-export function resequenceQueueTimes(
-  current: readonly QueueResequenceInput[],
-  newOrder: readonly string[],
-): Map<string, Date> {
-  const byId = new Map(current.map((c) => [c.matchId, c]));
-  const orderedIds = newOrder.filter((id) => byId.has(id));
-  const result = new Map<string, Date>();
-  if (orderedIds.length === 0) return result;
+export function buildScheduleGrid(
+  matches: readonly GridMatch[],
+  knownCourts: readonly string[],
+  slotMinutes: number,
+  trailingRows: number = 3,
+): ScheduleGrid {
+  const slotMs = slotMinutes * 60_000;
+  const distinctTimes = [...new Set(matches.map((m) => m.scheduledAt.getTime()))].sort((a, b) => a - b);
 
-  const original = [...current].sort((a, b) => a.scheduledAt.getTime() - b.scheduledAt.getTime());
-  let durationMs = DEFAULT_MATCH_DURATION_MINUTES * 60_000;
-  if (original.length >= 2) {
-    const gap = original[1].scheduledAt.getTime() - original[0].scheduledAt.getTime();
-    if (gap > 0) durationMs = gap;
+  const rows: Date[] = [];
+  const rowIndexByTime = new Map<number, number>();
+  let prevTime = distinctTimes[0];
+  let prevRowIndex = 0;
+  rows[0] = new Date(prevTime);
+  rowIndexByTime.set(prevTime, 0);
+  for (let i = 1; i < distinctTimes.length; i++) {
+    const time = distinctTimes[i];
+    const steps = Math.max(1, Math.round((time - prevTime) / slotMs));
+    const rowIndex = prevRowIndex + steps;
+    for (let r = prevRowIndex + 1; r < rowIndex; r++) {
+      rows[r] = new Date(prevTime + (r - prevRowIndex) * slotMs);
+    }
+    rows[rowIndex] = new Date(time);
+    rowIndexByTime.set(time, rowIndex);
+    prevTime = time;
+    prevRowIndex = rowIndex;
+  }
+  for (let k = 1; k <= trailingRows; k++) {
+    rows[prevRowIndex + k] = new Date(prevTime + k * slotMs);
   }
 
-  const anchor = byId.get(orderedIds[0])!.scheduledAt.getTime();
-  orderedIds.forEach((id, i) => result.set(id, new Date(anchor + i * durationMs)));
-  return result;
+  const courts = [...knownCourts];
+  const cellsByKey = new Map<string, string[]>();
+  for (const m of matches) {
+    if (!courts.includes(m.court)) courts.push(m.court);
+    const rowIndex = rowIndexByTime.get(m.scheduledAt.getTime())!;
+    const key = `${rowIndex}:${m.court}`;
+    const bucket = cellsByKey.get(key);
+    if (bucket) bucket.push(m.matchId);
+    else cellsByKey.set(key, [m.matchId]);
+  }
+
+  return { rows, courts, cellsByKey };
 }
 
 export type CourtScheduleMatchInput = {

@@ -31,7 +31,7 @@ export async function estimateTournamentSchedule(
 ): Promise<Map<string, ScheduleEstimate>> {
   const tournament = await prisma.tournament.findUnique({
     where: { id: tournamentId },
-    select: { courtCount: true },
+    select: { courtCount: true, matchDurationMinutes: true },
   });
   if (!tournament) return new Map();
 
@@ -88,7 +88,11 @@ export async function estimateTournamentSchedule(
 
   const estimates = estimateMatchSchedule(
     inputs,
-    { courts: tournament.courtCount, dayStart: defaultDayStart(now) },
+    {
+      courts: tournament.courtCount,
+      dayStart: defaultDayStart(now),
+      matchDurationMinutes: tournament.matchDurationMinutes,
+    },
     now,
   );
   return new Map(estimates.map((e) => [e.matchId, e]));

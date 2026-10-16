@@ -7,11 +7,11 @@ import { prisma } from "@/lib/prisma";
 import { requireUserId } from "@/lib/session";
 import { formatDate } from "@/lib/formatDate";
 import {
+  DEFAULT_MIN_REST_MINUTES,
   dayKey,
   distributeAcrossCourts,
   isWithinTournamentDays,
   parseDateTimeLocal,
-  resequenceQueueTimes,
 } from "@/lib/tournament/schedule";
 import { courtName, parseCourtNumber } from "@/lib/tournament/courts";
 
@@ -83,13 +83,50 @@ export async function setMatchSchedule(
   return { saved: true };
 }
 
+export type MatchDurationActionState = { error?: string; saved?: boolean };
+
+const matchDurationSchema = z.object({
+  matchDurationMinutes: z.coerce.number().int().min(5, "Minutes per match must be at least 5").max(600, "That's too long for one match"),
+});
+
+/**
+ * Sets the tournament-wide match duration — one value used everywhere a
+ * match's assumed length matters (the bulk schedule tool below, the
+ * post-match cascade reschedule, and the dashboard's "next match" estimate),
+ * instead of each of those re-asking for it separately and risking drift.
+ */
+export async function setMatchDurationMinutes(
+  tournamentId: string,
+  _prevState: MatchDurationActionState,
+  formData: FormData,
+): Promise<MatchDurationActionState> {
+  const userId = await requireUserId();
+
+  const tournament = await prisma.tournament.findUnique({ where: { id: tournamentId } });
+  if (!tournament || tournament.organizerId !== userId) {
+    return { error: "Tournament not found." };
+  }
+
+  const parsed = matchDurationSchema.safeParse({ matchDurationMinutes: formData.get("matchDurationMinutes") });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+  }
+
+  await prisma.tournament.update({
+    where: { id: tournamentId },
+    data: { matchDurationMinutes: parsed.data.matchDurationMinutes },
+  });
+
+  revalidateTournament(tournament.slug);
+  revalidatePath("/dashboard");
+  return { saved: true };
+}
+
 export type BulkScheduleActionState = { error?: string; scheduledCount?: number; resetCount?: number };
 
 const bulkScheduleSchema = z.object({
   date: z.string().trim().min(1, "Enter a date"),
   startTime: z.string().trim().min(1, "Enter a start time"),
-  durationMinutes: z.coerce.number().int().min(5, "Minutes per match must be at least 5"),
-  minRestMinutes: z.coerce.number().int().min(0, "Rest can't be negative"),
 });
 
 const playerKeysFor = (entry: { players: { userId: string | null }[] } | null): readonly string[] =>
@@ -122,13 +159,22 @@ export async function bulkScheduleMatches(
  * live/estimated schedule elsewhere: it only ever runs when the organizer
  * asks, on exactly the matches they picked.
  *
+ * Every match uses the tournament's own `matchDurationMinutes` — one value
+ * for the whole tournament, not re-entered per batch, so two batches
+ * scheduled at different times (e.g. a morning session, then an afternoon
+ * one after a lunch break) can never end up using different durations and
+ * drifting out of sync with each other.
+ *
  * "Minimum rest" is a per-player constraint, not a flat gap between matches:
  * it's checked against every match a player is in across the whole
  * tournament — including one outside this batch (already scheduled, live, or
  * played) — so e.g. a men's singles match doesn't get immediately followed
  * by that same player's doubles match just because they're different events.
- * Court assignment similarly schedules around any other same-day match that's
- * already pinned to a numbered court, rather than double-booking it.
+ * Not currently organizer-configurable (temporarily removed from the form to
+ * avoid confusion alongside the new tournament-wide duration setting) — uses
+ * `DEFAULT_MIN_REST_MINUTES` for now. Court assignment similarly schedules
+ * around any other same-day match that's already pinned to a numbered court,
+ * rather than double-booking it.
  */
 async function scheduleCheckedMatches(tournamentId: string, formData: FormData): Promise<BulkScheduleActionState> {
   const userId = await requireUserId();
@@ -141,12 +187,12 @@ async function scheduleCheckedMatches(tournamentId: string, formData: FormData):
   const parsed = bulkScheduleSchema.safeParse({
     date: String(formData.get("date") ?? ""),
     startTime: String(formData.get("startTime") ?? ""),
-    durationMinutes: formData.get("durationMinutes"),
-    minRestMinutes: formData.get("minRestMinutes"),
   });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
   }
+  const durationMinutes = tournament.matchDurationMinutes;
+  const minRestMinutes = DEFAULT_MIN_REST_MINUTES;
 
   const matchIds = formData
     .getAll("matchIds")
@@ -253,9 +299,9 @@ async function scheduleCheckedMatches(tournamentId: string, formData: FormData):
     if (m.actualEnd) {
       interval = { start: m.startedAt ?? m.scheduledAt ?? m.actualEnd, end: m.actualEnd };
     } else if (m.liveStartedAt) {
-      interval = { start: m.liveStartedAt, end: new Date(m.liveStartedAt.getTime() + parsed.data.durationMinutes * 60_000) };
+      interval = { start: m.liveStartedAt, end: new Date(m.liveStartedAt.getTime() + durationMinutes * 60_000) };
     } else if (m.scheduledAt) {
-      interval = { start: m.scheduledAt, end: new Date(m.scheduledAt.getTime() + parsed.data.durationMinutes * 60_000) };
+      interval = { start: m.scheduledAt, end: new Date(m.scheduledAt.getTime() + durationMinutes * 60_000) };
     }
     if (!interval) continue;
 
@@ -272,7 +318,7 @@ async function scheduleCheckedMatches(tournamentId: string, formData: FormData):
 
     const keys = [...playerKeysFor(m.entry1), ...playerKeysFor(m.entry2)].filter((k) => batchPlayerKeys.has(k));
     if (keys.length === 0) continue;
-    const busyUntil = new Date(interval.end.getTime() + parsed.data.minRestMinutes * 60_000);
+    const busyUntil = new Date(interval.end.getTime() + minRestMinutes * 60_000);
     for (const key of keys) {
       const existing = priorBusyUntil.get(key);
       if (!existing || busyUntil.getTime() > existing.getTime()) priorBusyUntil.set(key, busyUntil);
@@ -288,8 +334,8 @@ async function scheduleCheckedMatches(tournamentId: string, formData: FormData):
     {
       courts: tournament.courtCount,
       start,
-      matchDurationMinutes: parsed.data.durationMinutes,
-      minRestMinutes: parsed.data.minRestMinutes,
+      matchDurationMinutes: durationMinutes,
+      minRestMinutes,
       priorBusyUntil,
       priorCourtBusy,
       priorFinishTimes,
@@ -356,24 +402,34 @@ async function resetScheduledMatches(
   return { resetCount: matches.length };
 }
 
-export type RecalculateQueueActionState = { error?: string; updatedCount?: number };
+export type GridMoveActionState = { error?: string };
 
-const queuesSchema = z.array(z.object({ matchIds: z.array(z.string().min(1)).min(1) }));
+const gridTargetSchema = z.object({
+  /** "YYYY-MM-DDTHH:mm", or null to drop the match back into "Unscheduled". */
+  scheduledAt: z.string().trim().min(1).nullable(),
+  /** Null for "no court" (including whenever scheduledAt is null — an unscheduled match has no court either). */
+  court: z
+    .string()
+    .trim()
+    .transform((court) => court.replace(/\s+/g, " "))
+    .pipe(z.string().max(40, "Court name is too long (40 characters max)"))
+    .nullable(),
+});
 
 /**
- * After the organizer drags matches into a new order within one or more
- * courts' queues (on the schedule page's per-court board), recomputes each
- * reordered queue's times — one `resequenceQueueTimes` call per queue, so a
- * drag in one court's queue never touches another's times. Only matches that
- * still have a time and haven't been played are eligible; anything else
- * named in a queue (played in the meantime, unscheduled) is silently skipped
- * rather than failing the whole request.
+ * Drag-and-drop on the schedule page's time-by-court grid: called directly
+ * (not form-bound — there's no form here, just a drop) with where `matchId`
+ * landed. Moves it there outright if the target cell was empty; if another
+ * match already occupied it, they swap — `occupant` takes whatever
+ * `matchId`'s own slot was, which is "Unscheduled" (null/null) if `matchId`
+ * had no time yet itself, since there's nothing to swap back in that case.
+ * Dropping back onto its own current cell is a no-op.
  */
-export async function recalculateQueueTimes(
+export async function moveMatchOnGrid(
   tournamentId: string,
-  _prevState: RecalculateQueueActionState,
-  formData: FormData,
-): Promise<RecalculateQueueActionState> {
+  matchId: string,
+  rawTarget: { scheduledAt: string | null; court: string | null },
+): Promise<GridMoveActionState> {
   const userId = await requireUserId();
 
   const tournament = await prisma.tournament.findUnique({ where: { id: tournamentId } });
@@ -381,44 +437,50 @@ export async function recalculateQueueTimes(
     return { error: "Tournament not found." };
   }
 
-  let queues: { matchIds: string[] }[];
-  try {
-    queues = queuesSchema.parse(JSON.parse(String(formData.get("queues") ?? "[]")));
-  } catch {
-    return { error: "Couldn't read the reordered queues. Reload the page and try again." };
-  }
-  if (queues.length === 0) {
-    return { error: "Drag a match to reorder a court's queue first, then try again." };
+  const parsed = gridTargetSchema.safeParse(rawTarget);
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Invalid drop target." };
   }
 
-  const allIds = [...new Set(queues.flatMap((q) => q.matchIds))];
-  const matches = await prisma.match.findMany({
-    where: { id: { in: allIds }, event: { tournamentId }, isBye: false, status: null, scheduledAt: { not: null } },
-    select: { id: true, scheduledAt: true },
+  const dragged = await prisma.match.findFirst({
+    where: { id: matchId, event: { tournamentId }, isBye: false, status: null },
+    select: { id: true, scheduledAt: true, court: true },
   });
-  const byId = new Map(matches.map((m) => [m.id, m]));
+  if (!dragged) {
+    return { error: "That match can't be rescheduled — it may have been played already." };
+  }
 
-  const updates = new Map<string, Date>();
-  for (const queue of queues) {
-    const current = queue.matchIds.flatMap((id) => {
-      const scheduledAt = byId.get(id)?.scheduledAt;
-      return scheduledAt ? [{ matchId: id, scheduledAt }] : [];
-    });
-    for (const [matchId, scheduledAt] of resequenceQueueTimes(current, queue.matchIds)) {
-      updates.set(matchId, scheduledAt);
+  let targetScheduledAt: Date | null = null;
+  if (parsed.data.scheduledAt) {
+    targetScheduledAt = parseDateTimeLocal(parsed.data.scheduledAt);
+    if (!targetScheduledAt) return { error: "Invalid drop target." };
+    if (!isWithinTournamentDays(targetScheduledAt, tournament.startDate, tournament.endDate)) {
+      return { error: `Pick a time on a tournament day (${formatDate(tournament.startDate)} – ${formatDate(tournament.endDate)}).` };
     }
   }
-  if (updates.size === 0) {
-    return { error: "None of those matches could be rescheduled — they may have been played or unscheduled already." };
+  const targetCourt = targetScheduledAt ? parsed.data.court : null;
+
+  if (dragged.scheduledAt?.getTime() === targetScheduledAt?.getTime() && dragged.court === targetCourt) {
+    return {};
   }
 
-  await prisma.$transaction(
-    [...updates.entries()].map(([id, scheduledAt]) => prisma.match.update({ where: { id }, data: { scheduledAt } })),
-  );
+  const occupant = targetScheduledAt
+    ? await prisma.match.findFirst({
+        where: { event: { tournamentId }, id: { not: matchId }, isBye: false, status: null, scheduledAt: targetScheduledAt, court: targetCourt },
+        select: { id: true },
+      })
+    : null;
+
+  await prisma.$transaction([
+    prisma.match.update({ where: { id: matchId }, data: { scheduledAt: targetScheduledAt, court: targetCourt } }),
+    ...(occupant
+      ? [prisma.match.update({ where: { id: occupant.id }, data: { scheduledAt: dragged.scheduledAt, court: dragged.court } })]
+      : []),
+  ]);
 
   revalidateTournament(tournament.slug);
   revalidatePath("/dashboard");
-  return { updatedCount: updates.size };
+  return {};
 }
 
 /**

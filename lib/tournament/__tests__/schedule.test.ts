@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildScheduleGrid,
   cascadeReschedule,
   compareCourts,
   courtColumns,
@@ -15,10 +16,10 @@ import {
   formatScheduleLabel,
   formatTimeOfDay,
   groupByDay,
+  inferSlotMinutes,
   isWithinTournamentDays,
   knockoutRoundCount,
   parseDateTimeLocal,
-  resequenceQueueTimes,
   sortSchedule,
   stageLabel,
   toDateTimeLocal,
@@ -862,49 +863,163 @@ describe("cascadeReschedule", () => {
   });
 });
 
-describe("resequenceQueueTimes", () => {
-  const queue = [
-    { matchId: "a", scheduledAt: at("2026-12-01T09:00") },
-    { matchId: "b", scheduledAt: at("2026-12-01T09:40") },
-    { matchId: "c", scheduledAt: at("2026-12-01T10:20") },
-  ];
-
-  it("keeps the original times when the order doesn't change", () => {
-    const result = resequenceQueueTimes(queue, ["a", "b", "c"]);
-    expect(result.get("a")).toEqual(at("2026-12-01T09:00"));
-    expect(result.get("b")).toEqual(at("2026-12-01T09:40"));
-    expect(result.get("c")).toEqual(at("2026-12-01T10:20"));
-  });
-
-  it("anchors on the new first match's own current time and reapplies the original gap", () => {
-    // c dragged to the front: keeps its own 10:20 slot, then b and a follow at the original 40-minute gap.
-    const result = resequenceQueueTimes(queue, ["c", "a", "b"]);
-    expect(result.get("c")).toEqual(at("2026-12-01T10:20"));
-    expect(result.get("a")).toEqual(at("2026-12-01T11:00"));
-    expect(result.get("b")).toEqual(at("2026-12-01T11:40"));
-  });
-
+describe("inferSlotMinutes", () => {
   it("falls back to the default duration with fewer than two timed matches", () => {
-    const result = resequenceQueueTimes([{ matchId: "solo", scheduledAt: at("2026-12-01T09:00") }], ["solo"]);
-    expect(result.get("solo")).toEqual(at("2026-12-01T09:00"));
+    expect(inferSlotMinutes([{ scheduledAt: at("2026-12-01T09:00") }])).toBe(45);
+    expect(inferSlotMinutes([])).toBe(45);
   });
 
-  it("falls back to the default duration when the original gap isn't positive", () => {
-    const sameTime = [
-      { matchId: "a", scheduledAt: at("2026-12-01T09:00") },
-      { matchId: "b", scheduledAt: at("2026-12-01T09:00") },
+  it("infers the evenly-spaced gap", () => {
+    const matches = [
+      { scheduledAt: at("2026-12-01T09:00") },
+      { scheduledAt: at("2026-12-01T09:40") },
+      { scheduledAt: at("2026-12-01T10:20") },
+      { scheduledAt: at("2026-12-01T11:00") },
     ];
-    const result = resequenceQueueTimes(sameTime, ["a", "b"]);
-    expect(result.get("b")!.getTime() - result.get("a")!.getTime()).toBe(45 * 60_000);
+    expect(inferSlotMinutes(matches)).toBe(40);
   });
 
-  it("ignores new-order entries that aren't in the current queue", () => {
-    const result = resequenceQueueTimes(queue, ["a", "ghost", "b", "c"]);
-    expect([...result.keys()]).toEqual(["a", "b", "c"]);
+  it("stays stable at the original spacing after a match is removed from the middle (its gap merges into a multiple of the true spacing)", () => {
+    // The 9:40 match is gone; the remaining matches are still 40 apart, just with one doubled (80-min) gap.
+    const matches = [
+      { scheduledAt: at("2026-12-01T09:00") },
+      { scheduledAt: at("2026-12-01T10:20") },
+      { scheduledAt: at("2026-12-01T11:00") },
+    ];
+    expect(inferSlotMinutes(matches)).toBe(40);
   });
 
-  it("returns an empty map when the new order has no recognized matches", () => {
-    const result = resequenceQueueTimes(queue, []);
-    expect(result.size).toBe(0);
+  it("isn't thrown off by one longer break between two evenly-spaced sessions (a lunch gap that isn't a multiple of the usual spacing)", () => {
+    // Morning: 9:00, 9:40, 10:20, 11:00 (40 min apart). A 60-minute lunch break, then
+    // afternoon: 12:00, 12:40, 1:20, 2:00 (40 min apart again) — one 60-min gap among six 40-min ones.
+    const matches = [
+      { scheduledAt: at("2026-12-01T09:00") },
+      { scheduledAt: at("2026-12-01T09:40") },
+      { scheduledAt: at("2026-12-01T10:20") },
+      { scheduledAt: at("2026-12-01T11:00") },
+      { scheduledAt: at("2026-12-01T12:00") },
+      { scheduledAt: at("2026-12-01T12:40") },
+      { scheduledAt: at("2026-12-01T13:20") },
+      { scheduledAt: at("2026-12-01T14:00") },
+    ];
+    expect(inferSlotMinutes(matches)).toBe(40);
+  });
+
+  it("tolerates a couple of minutes of jitter in otherwise evenly-spaced times", () => {
+    const matches = [
+      { scheduledAt: at("2026-12-01T09:00") },
+      { scheduledAt: at("2026-12-01T09:41") },
+      { scheduledAt: at("2026-12-01T10:19") },
+    ];
+    expect(inferSlotMinutes(matches)).toBe(40);
+  });
+
+  it("falls back to the default when every gap is non-positive (duplicate times)", () => {
+    const matches = [{ scheduledAt: at("2026-12-01T09:00") }, { scheduledAt: at("2026-12-01T09:00") }];
+    expect(inferSlotMinutes(matches)).toBe(45);
+  });
+
+  it("ignores duplicate timestamps when computing gaps", () => {
+    const matches = [
+      { scheduledAt: at("2026-12-01T09:00") },
+      { scheduledAt: at("2026-12-01T09:00") },
+      { scheduledAt: at("2026-12-01T09:30") },
+    ];
+    expect(inferSlotMinutes(matches)).toBe(30);
+  });
+});
+
+describe("buildScheduleGrid", () => {
+  it("places matches into rows aligned by time, columns by court", () => {
+    const grid = buildScheduleGrid(
+      [
+        { matchId: "a", scheduledAt: at("2026-12-01T09:00"), court: "Court 1" },
+        { matchId: "b", scheduledAt: at("2026-12-01T09:00"), court: "Court 2" },
+        { matchId: "c", scheduledAt: at("2026-12-01T09:40"), court: "Court 1" },
+      ],
+      ["Court 1", "Court 2"],
+      40,
+      0,
+    );
+    expect(grid.rows).toEqual([at("2026-12-01T09:00"), at("2026-12-01T09:40")]);
+    expect(grid.courts).toEqual(["Court 1", "Court 2"]);
+    expect(grid.cellsByKey.get("0:Court 1")).toEqual(["a"]);
+    expect(grid.cellsByKey.get("0:Court 2")).toEqual(["b"]);
+    expect(grid.cellsByKey.get("1:Court 1")).toEqual(["c"]);
+    expect(grid.cellsByKey.has("1:Court 2")).toBe(false);
+  });
+
+  it("appends trailing empty rows past the last match", () => {
+    const grid = buildScheduleGrid(
+      [{ matchId: "a", scheduledAt: at("2026-12-01T09:00"), court: "Court 1" }],
+      ["Court 1"],
+      40,
+      3,
+    );
+    expect(grid.rows).toHaveLength(4);
+    expect(grid.rows[3]).toEqual(at("2026-12-01T11:00"));
+  });
+
+  it("keeps a court not in knownCourts instead of dropping its match", () => {
+    const grid = buildScheduleGrid(
+      [{ matchId: "a", scheduledAt: at("2026-12-01T09:00"), court: "Legacy Court" }],
+      ["Court 1", "Court 2"],
+      40,
+      0,
+    );
+    expect(grid.courts).toEqual(["Court 1", "Court 2", "Legacy Court"]);
+    expect(grid.cellsByKey.get("0:Legacy Court")).toEqual(["a"]);
+  });
+
+  it("folds a slightly off-grid time into the nearest row instead of creating a new one, but keeps its own exact time rather than rounding it", () => {
+    const grid = buildScheduleGrid(
+      [
+        { matchId: "a", scheduledAt: at("2026-12-01T09:00"), court: "Court 1" },
+        { matchId: "b", scheduledAt: at("2026-12-01T09:41"), court: "Court 2" }, // 1 min off the 40-min grid
+      ],
+      ["Court 1", "Court 2"],
+      40,
+      0,
+    );
+    expect(grid.rows).toHaveLength(2);
+    expect(grid.cellsByKey.get("1:Court 2")).toEqual(["b"]);
+    // b's row shows its own real 9:41, not a rounded-to-9:40 time it was never actually scheduled at.
+    expect(grid.rows[1]).toEqual(at("2026-12-01T09:41"));
+  });
+
+  it("keeps a match's own exact time when a break before it isn't a multiple of the slot size, instead of mislabeling its row", () => {
+    // 11:00 is the last morning match; 12:00 starts the afternoon after a 60-min lunch break —
+    // not a multiple of the 40-min slot. 12:00 must still read as 12:00, not some rounded 12:20.
+    const grid = buildScheduleGrid(
+      [
+        { matchId: "a", scheduledAt: at("2026-12-01T09:00"), court: "Court 1" },
+        { matchId: "b", scheduledAt: at("2026-12-01T09:40"), court: "Court 1" },
+        { matchId: "c", scheduledAt: at("2026-12-01T10:20"), court: "Court 1" },
+        { matchId: "d", scheduledAt: at("2026-12-01T11:00"), court: "Court 1" },
+        { matchId: "e", scheduledAt: at("2026-12-01T12:00"), court: "Court 1" },
+      ],
+      ["Court 1"],
+      40,
+      0,
+    );
+    // One empty filler row between d (row 3) and e, which lands two slots later (60 min / 40-min steps ≈ 2).
+    expect(grid.rows).toHaveLength(6);
+    expect(grid.cellsByKey.get("3:Court 1")).toEqual(["d"]);
+    expect(grid.cellsByKey.get("5:Court 1")).toEqual(["e"]);
+    expect(grid.rows[5]).toEqual(at("2026-12-01T12:00")); // e's own real time, not a rounded 12:20
+    expect(grid.rows[4]).toEqual(at("2026-12-01T11:40")); // the empty filler row in between, interpolated
+  });
+
+  it("stacks more than one match in the same cell as a real conflict rather than dropping one", () => {
+    const grid = buildScheduleGrid(
+      [
+        { matchId: "a", scheduledAt: at("2026-12-01T09:00"), court: "Court 1" },
+        { matchId: "b", scheduledAt: at("2026-12-01T09:00"), court: "Court 1" },
+      ],
+      ["Court 1"],
+      40,
+      0,
+    );
+    expect(grid.cellsByKey.get("0:Court 1")).toEqual(["a", "b"]);
   });
 });

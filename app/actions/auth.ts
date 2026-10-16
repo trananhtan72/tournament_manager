@@ -11,6 +11,11 @@ export async function signOutAction(): Promise<void> {
   await signOut({ redirectTo: "/" });
 }
 
+/** Redirects to Google's consent screen; Auth.js brings the user back to `callbackUrl` once they approve. */
+export async function signInWithGoogle(callbackUrl: string): Promise<void> {
+  await signIn("google", { redirectTo: callbackUrl });
+}
+
 export type AuthActionState = { error?: string };
 
 const signUpSchema = z.object({

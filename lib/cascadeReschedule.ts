@@ -1,11 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { revalidateTournament } from "@/lib/revalidate";
-import {
-  cascadeReschedule,
-  DEFAULT_MATCH_DURATION_MINUTES,
-  DEFAULT_MIN_REST_MINUTES,
-  type CascadeScheduledMatch,
-} from "@/lib/tournament/schedule";
+import { cascadeReschedule, DEFAULT_MIN_REST_MINUTES, type CascadeScheduledMatch } from "@/lib/tournament/schedule";
 
 const playerKeysFor = (entry: { players: { userId: string | null }[] } | null): readonly string[] =>
   entry ? entry.players.map((p) => p.userId).filter((id): id is string => id !== null) : [];
@@ -21,11 +16,13 @@ const playerKeysFor = (entry: { players: { userId: string | null }[] } | null): 
  * cascadeReschedule in lib/tournament/schedule.ts for the exact rules.
  *
  * A no-op if the concluded match was never given a time — nothing depends on
- * a match that was never part of a plan. `minRestMinutes` and
- * `matchDurationMinutes` aren't persisted anywhere per schedule, so this uses
- * the same defaults the estimator falls back to; the actual numbers rarely
- * matter, since they only change anything in the edge case of a match
- * running unusually long or short.
+ * a match that was never part of a plan. Uses the tournament's own
+ * `matchDurationMinutes` (the same value the bulk schedule tool uses) for
+ * how long a not-yet-played feeder is assumed to take; `minRestMinutes`
+ * isn't currently organizer-configurable, so this uses the same
+ * `DEFAULT_MIN_REST_MINUTES` the estimator falls back to. These numbers
+ * rarely matter much either way, since they only change anything in the edge
+ * case of a match running unusually long or short.
  */
 export async function cascadeRescheduleAfterMatch(matchId: string, actualEnd: Date): Promise<void> {
   const match = await prisma.match.findUnique({
@@ -37,7 +34,7 @@ export async function cascadeRescheduleAfterMatch(matchId: string, actualEnd: Da
       poolId: true,
       scheduledAt: true,
       court: true,
-      event: { select: { tournamentId: true, tournament: { select: { slug: true } } } },
+      event: { select: { tournamentId: true, tournament: { select: { slug: true, matchDurationMinutes: true } } } },
       entry1: { select: { players: { select: { userId: true } } } },
       entry2: { select: { players: { select: { userId: true } } } },
     },
@@ -100,7 +97,7 @@ export async function cascadeRescheduleAfterMatch(matchId: string, actualEnd: Da
     { matchId, scheduledAt: match.scheduledAt, court: match.court, playerKeys: concludedPlayerKeys },
     actualEnd,
     DEFAULT_MIN_REST_MINUTES,
-    DEFAULT_MATCH_DURATION_MINUTES,
+    match.event.tournament.matchDurationMinutes,
   );
   if (shifts.size === 0) return;
 

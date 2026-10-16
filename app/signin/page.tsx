@@ -1,5 +1,6 @@
 import { SignInForm } from "@/app/signin/SignInForm";
 import { safeCallbackUrl } from "@/lib/callbackUrl";
+import { isGoogleAuthEnabled } from "@/lib/googleAuthEnabled";
 
 export default async function SignInPage({
   searchParams,
@@ -8,5 +9,7 @@ export default async function SignInPage({
   const sessionExpired = params.sessionExpired === "1";
   const callbackUrl = safeCallbackUrl(params.callbackUrl, "/organizer");
 
-  return <SignInForm sessionExpired={sessionExpired} callbackUrl={callbackUrl} />;
+  return (
+    <SignInForm sessionExpired={sessionExpired} callbackUrl={callbackUrl} googleEnabled={isGoogleAuthEnabled()} />
+  );
 }

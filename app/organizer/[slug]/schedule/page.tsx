@@ -6,21 +6,26 @@ import { prisma } from "@/lib/prisma";
 import { entryDisplayName } from "@/lib/playerDisplay";
 import { formatDate } from "@/lib/formatDate";
 import {
-  courtColumns,
+  buildScheduleGrid,
   dayKey,
   formatDayHeading,
   formatScheduleLabel,
   formatTimeOfDay,
   groupByDay,
+  inferSlotMinutes,
   knockoutRoundCount,
   sortSchedule,
   stageLabel,
   toDateTimeLocal,
 } from "@/lib/tournament/schedule";
+import { courtName, courtNumbers } from "@/lib/tournament/courts";
 import { BulkScheduleForm, type BulkScheduleEventGroup } from "@/app/organizer/[slug]/schedule/BulkScheduleForm";
-import { ScheduleQueueBoard, type DaySection, type QueueMatch } from "@/app/organizer/[slug]/schedule/ScheduleQueueBoard";
+import { MatchDurationForm } from "@/app/organizer/[slug]/schedule/MatchDurationForm";
+import { ScheduleGridBoard, type DayGrid, type GridMatch } from "@/app/organizer/[slug]/schedule/ScheduleGridBoard";
 import { resetAllSchedules } from "@/app/actions/schedule";
 import { ActionForm } from "@/components/ActionForm";
+
+const NO_COURT = "No court";
 
 export const metadata: Metadata = { title: "Match schedule" };
 
@@ -136,27 +141,36 @@ export default async function OrganizerSchedulePage({
         a.eventName.localeCompare(b.eventName, "en", { numeric: true }) || a.round - b.round || a.position - b.position,
     );
 
-  const toQueueMatch = (m: FlatMatch, timeLabel: string | null): QueueMatch => ({
+  const toGridMatch = (m: FlatMatch): GridMatch => ({
     matchId: m.matchId,
     eventName: m.eventName,
     stage: m.stage,
     label: m.label,
-    timeLabel,
     initialScheduledAt: m.scheduledAt ? toDateTimeLocal(m.scheduledAt) : "",
     initialCourt: m.court ?? "",
     refereeId: m.refereeId,
     draftDraw: m.draftDraw,
   });
 
-  const days: DaySection[] = groupByDay(sortSchedule(timed)).map((day) => ({
-    day: day.day,
-    heading: formatDayHeading(day.date),
-    courts: courtColumns(day.items).map((col) => ({
-      court: col.court,
-      matches: col.items.map((m) => toQueueMatch(m, formatTimeOfDay(m.scheduledAt))),
-    })),
-  }));
-  const unscheduled: QueueMatch[] = untimed.map((m) => toQueueMatch(m, null));
+  const allMatches: GridMatch[] = flatMatches.map(toGridMatch);
+  const knownCourts = courtNumbers(tournament.courtCount).map(courtName);
+
+  const days: DayGrid[] = groupByDay(sortSchedule(timed)).map((day) => {
+    const slotMinutes = inferSlotMinutes(day.items);
+    const grid = buildScheduleGrid(
+      day.items.map((m) => ({ matchId: m.matchId, scheduledAt: m.scheduledAt, court: m.court ?? NO_COURT })),
+      knownCourts,
+      slotMinutes,
+    );
+    return {
+      day: day.day,
+      heading: formatDayHeading(day.date),
+      courts: grid.courts,
+      rows: grid.rows.map((rowDate) => ({ label: formatTimeOfDay(rowDate), value: toDateTimeLocal(rowDate) })),
+      cells: Object.fromEntries(grid.cellsByKey),
+    };
+  });
+  const unscheduled = untimed.map((m) => m.matchId);
 
   return (
     <div className="flex flex-col gap-6">
@@ -185,15 +199,21 @@ export default async function OrganizerSchedulePage({
 
       {hasAnyMatches && (
         <section className="flex flex-col gap-4 rounded-lg border border-border p-4">
+          <div className="flex flex-col gap-2 border-b border-border pb-4">
+            <h2 className="text-lg font-semibold">Match duration</h2>
+            <p className="text-sm text-muted">
+              One length for every match in the tournament, so different batches scheduled at different
+              times never end up out of sync with each other.
+            </p>
+            <MatchDurationForm tournamentId={tournament.id} initialMinutes={tournament.matchDurationMinutes} />
+          </div>
           <div>
             <h2 className="text-lg font-semibold">Schedule or reschedule a day</h2>
             <p className="text-sm text-muted">
               Pick a date and start time, then check which matches play that day — each one gets a time
               and a court, spread evenly across your {tournament.courtCount} court
-              {tournament.courtCount === 1 ? "" : "s"} (lower-numbered courts filled first), never
-              starting a player before they&apos;ve had the minimum rest since their last match (across
-              every event they&apos;re in). Already-scheduled matches are listed too, so you can select
-              them again to revise the plan.
+              {tournament.courtCount === 1 ? "" : "s"} (lower-numbered courts filled first). Already-scheduled
+              matches are listed too, so you can select them again to revise the plan.
             </p>
           </div>
           <BulkScheduleForm
@@ -218,10 +238,11 @@ export default async function OrganizerSchedulePage({
       )}
 
       {hasAnyMatches ? (
-        <ScheduleQueueBoard
+        <ScheduleGridBoard
           tournamentId={tournament.id}
           days={days}
           unscheduled={unscheduled}
+          matches={allMatches}
           courtCount={tournament.courtCount}
           firstDay={firstDay}
           lastDay={lastDay}
