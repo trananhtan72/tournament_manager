@@ -180,6 +180,8 @@ export default async function OverviewTab({ params }: PageProps<"/t/[slug]">) {
                   drawPublished={event.drawPublished}
                   signedIn={Boolean(userId)}
                   myEntry={myEntryByEventId.get(event.id) ?? null}
+                  tournamentName={tournament.name}
+                  regulations={regulations}
                 />
               </li>
             ))}

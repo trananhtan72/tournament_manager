@@ -88,7 +88,8 @@ export default async function MatchCenterPage({
 }: PageProps<"/organizer/[slug]/matches">) {
   const { slug } = await params;
   const { event: rawEventFilter, view: rawView } = await searchParams;
-  const gridView = rawView === "grid";
+  // Grid is the default view; list is opt-in via ?view=list (see ViewTabs's own default-to-first-option logic, matched below).
+  const gridView = rawView !== "list";
   const userId = await requireOrganizerId();
 
   const tournament = await prisma.tournament.findFirst({
@@ -188,7 +189,15 @@ export default async function MatchCenterPage({
         a.position - b.position,
     );
 
-  function MatchItem({ item }: { item: Item }) {
+  // Grid view only (see call sites below) — list view's cards keep their
+  // plain, uncolored border regardless of status.
+  function cardStatusClass(match: Item["match"], live: unknown): string {
+    if (live) return "border-accent/50 bg-accent/10";
+    if (match.status !== null) return "border-border bg-surface-muted";
+    return "border-border bg-surface";
+  }
+
+  function MatchItem({ item, colorByStatus = false }: { item: Item; colorByStatus?: boolean }) {
     const { match, eventName, stage, format } = item;
     const ready = match.entry1 !== null && match.entry2 !== null;
     const live = liveStates.get(match.id) ?? null;
@@ -197,7 +206,11 @@ export default async function MatchCenterPage({
     const currentGame = live ? live.games[live.games.length - 1] : null;
 
     return (
-      <li className="flex flex-col gap-2 rounded-md border border-border px-4 py-3">
+      <li
+        className={`flex flex-col gap-2 rounded-md border px-4 py-3 ${
+          colorByStatus ? cardStatusClass(match, live) : "border-border"
+        }`}
+      >
         <div className="flex flex-wrap items-baseline justify-between gap-x-3 text-xs">
           <span className="font-medium text-text">
             {eventName} · {stage}
@@ -300,8 +313,8 @@ export default async function MatchCenterPage({
           {eventChoices.length > 0 && <EventFilter events={eventChoices} />}
           <ViewTabs
             options={[
-              { value: "list", label: "List view" },
               { value: "grid", label: "Grid view" },
+              { value: "list", label: "List view" },
             ]}
           />
         </div>
@@ -347,7 +360,7 @@ export default async function MatchCenterPage({
               </h2>
               <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {upcomingLive.map((item) => (
-                  <MatchItem key={item.match.id} item={item} />
+                  <MatchItem key={item.match.id} item={item} colorByStatus />
                 ))}
               </ul>
             </section>
@@ -371,7 +384,7 @@ export default async function MatchCenterPage({
                       <h3 className="text-sm font-semibold text-text">{column.court}</h3>
                       <ul className="flex flex-col gap-4">
                         {column.items.map((item) => (
-                          <MatchItem key={item.match.id} item={item} />
+                          <MatchItem key={item.match.id} item={item} colorByStatus />
                         ))}
                       </ul>
                     </div>
@@ -388,7 +401,7 @@ export default async function MatchCenterPage({
               </h2>
               <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {gridUntimed.map((item) => (
-                  <MatchItem key={item.match.id} item={item} />
+                  <MatchItem key={item.match.id} item={item} colorByStatus />
                 ))}
               </ul>
             </section>

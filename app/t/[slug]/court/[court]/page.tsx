@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import type { Metadata, Viewport } from "next";
 import { prisma } from "@/lib/prisma";
-import { entryDisplayName } from "@/lib/playerDisplay";
+import { entryScoreboardName } from "@/lib/playerDisplay";
 import { gameFormatForMatch } from "@/lib/tournament/gameFormat";
 import { courtName } from "@/lib/tournament/courts";
 import { pickCourtDisplay } from "@/lib/tournament/courtDisplay";
@@ -66,8 +66,8 @@ export default async function CourtDisplayPage({ params }: PageProps<"/t/[slug]/
       { drawFormat: m.event.drawFormat, knockoutRounds: knockoutRoundCount(m.event.matches) },
     )}`;
   const namesOf = (m: (typeof matches)[number]): [string, string] => [
-    m.entry1 ? entryDisplayName(m.entry1) : "TBD",
-    m.entry2 ? entryDisplayName(m.entry2) : "TBD",
+    m.entry1 ? entryScoreboardName(m.entry1) : "TBD",
+    m.entry2 ? entryScoreboardName(m.entry2) : "TBD",
   ];
 
   let content: React.ReactNode;
