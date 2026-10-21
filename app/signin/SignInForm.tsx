@@ -12,10 +12,12 @@ const initialState: AuthActionState = {};
 
 export function SignInForm({
   sessionExpired,
+  passwordReset,
   callbackUrl,
   googleEnabled,
 }: {
   sessionExpired: boolean;
+  passwordReset: boolean;
   callbackUrl: string;
   googleEnabled: boolean;
 }) {
@@ -31,6 +33,9 @@ export function SignInForm({
         <p className="mb-4 text-sm text-warning">
           Your session is no longer valid. Please sign in again.
         </p>
+      )}
+      {passwordReset && (
+        <p className="mb-4 text-sm text-success">Your password has been reset. Sign in with your new password.</p>
       )}
       {googleEnabled && (
         <>
@@ -59,15 +64,20 @@ export function SignInForm({
           value={email}
           onChange={(e) => setEmail(e.target.value)}
         />
-        <TextField
-          label="Password"
-          name="password"
-          type="password"
-          required
-          autoComplete="current-password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-        />
+        <div className="flex flex-col gap-1">
+          <TextField
+            label="Password"
+            name="password"
+            type="password"
+            required
+            autoComplete="current-password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
+          <Link href="/forgot-password" className="self-end text-xs underline text-muted">
+            Forgot password?
+          </Link>
+        </div>
         <FormError message={state.error} />
         <SubmitButton>Sign in</SubmitButton>
       </form>

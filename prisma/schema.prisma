@@ -7,29 +7,30 @@ datasource db {
 }
 
 model User {
-  id            String              @id @default(cuid())
-  name          String
-  email         String              @unique
+  id                  String               @id @default(cuid())
+  name                String
+  email               String               @unique
   // Null for an account that's only ever signed in with Google (or another
   // future OAuth provider) — see auth.ts's Credentials authorize(), which
   // treats a null hash as "this account has no password to check against."
-  passwordHash  String?
+  passwordHash        String?
   // Auth.js's Prisma adapter writes both of these on every OAuth sign-in
   // (handle-login.js always passes emailVerified, and the Google provider's
   // default profile mapping always passes image) — required for the adapter
   // to create a user at all, not just nice-to-haves.
-  emailVerified DateTime?
-  image         String?
+  emailVerified       DateTime?
+  image               String?
   // ADMIN can create tournaments and grant/revoke ORGANIZER access; ORGANIZER
   // can create tournaments; USER (the default) cannot. See lib/roles.ts.
-  role          UserRole            @default(USER)
-  createdAt     DateTime            @default(now())
-  tournaments   Tournament[]
-  refereeRoles  TournamentReferee[]
-  entryPlayers  EntryPlayer[]
-  payments      TournamentPayment[]
-  notifications Notification[]
-  accounts      Account[]
+  role                UserRole             @default(USER)
+  createdAt           DateTime             @default(now())
+  tournaments         Tournament[]
+  refereeRoles        TournamentReferee[]
+  entryPlayers        EntryPlayer[]
+  payments            TournamentPayment[]
+  notifications       Notification[]
+  accounts            Account[]
+  passwordResetTokens PasswordResetToken[]
 }
 
 enum UserRole {
@@ -61,6 +62,24 @@ model Account {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([provider, providerAccountId])
+}
+
+// A single-use "forgot password" link for an email/password account. Only
+// tokenHash (a SHA-256 of the raw token emailed to the user) is ever stored —
+// never the raw token itself — so a leaked row alone can't be used to reset
+// anyone's password; see lib/passwordReset.ts.
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  expiresAt DateTime
+  // Null until the link is used (or superseded by a newer request) — see
+  // resetPassword in app/actions/passwordReset.ts.
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
 }
 
 enum EventCategory {

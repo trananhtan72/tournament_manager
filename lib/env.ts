@@ -13,6 +13,15 @@ const envSchema = z.object({
   // still run fine on Credentials alone.
   AUTH_GOOGLE_ID: optionalEnvString,
   AUTH_GOOGLE_SECRET: optionalEnvString,
+  // Optional: without it, lib/email.ts logs the password-reset link to the
+  // server console instead of emailing it — the reset flow itself still
+  // works end to end, just without real delivery, until this is set.
+  RESEND_API_KEY: optionalEnvString,
+  // "Name <email@domain>" or a bare address. Defaults to Resend's shared
+  // onboarding@resend.dev sender, which works without verifying a domain but
+  // can only send to the email the Resend account itself was signed up
+  // with — fine for development, not for real users.
+  RESEND_FROM_EMAIL: optionalEnvString,
 });
 
 const parsed = envSchema.safeParse(process.env);
