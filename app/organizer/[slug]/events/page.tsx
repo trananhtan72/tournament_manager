@@ -14,7 +14,10 @@ export default async function OrganizerEventsPage({
     where: { slug, organizerId: userId },
     include: {
       events: {
-        include: { entries: { select: { status: true } } },
+        include: {
+          entries: { select: { status: true } },
+          tieFormatSlots: { orderBy: { order: "asc" } },
+        },
         orderBy: { name: "asc" },
       },
     },
@@ -39,6 +42,7 @@ export default async function OrganizerEventsPage({
                 event.pointsPerGame,
                 event.knockoutGamesPerMatch,
                 event.knockoutPointsPerGame,
+                event.tieFormatSlots.map((s) => `${s.order}:${s.label}:${s.type}:${s.gamesPerMatch}:${s.pointsPerGame}`).join(","),
               ].join(":")}
               tournamentSlug={tournament.slug}
               eventId={event.id}
@@ -49,6 +53,7 @@ export default async function OrganizerEventsPage({
               pointsPerGame={event.pointsPerGame}
               knockoutGamesPerMatch={event.knockoutGamesPerMatch}
               knockoutPointsPerGame={event.knockoutPointsPerGame}
+              tieFormatSlots={event.tieFormatSlots}
               entryCount={event.entries.length}
               pendingApprovalCount={event.entries.filter((e) => e.status === "PENDING_APPROVAL").length}
             />

@@ -82,6 +82,7 @@ export function LiveMatchScreen({
         </h2>
         <p className="text-sm text-muted">
           {match.event.name} · {stage} · {describeGameFormat(format)}
+          {match.tieSlotLabel ? ` · ${match.tieSlotLabel}` : ""}
           {schedule ? ` · ${schedule}` : ""}
         </p>
       </div>

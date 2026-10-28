@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useActionState } from "react";
+import { Fragment, useActionState, useState } from "react";
 import Link from "next/link";
 import { updateEvent, deleteEvent } from "@/app/actions/events";
 import type { EventActionState } from "@/app/actions/events";
@@ -9,8 +9,10 @@ import { FormError } from "@/components/FormError";
 import { ActionForm } from "@/components/ActionForm";
 import { EventNameFields } from "@/components/EventNameFields";
 import { EventFormatFields } from "@/components/EventFormatFields";
+import { TieFormatFields } from "@/components/TieFormatFields";
 import { useRemountKey } from "@/lib/useRemountKey";
 import type { DrawFormat, EventCategory } from "@prisma/client";
+import type { TieFormatSlotInput } from "@/lib/tournament/tieFormat";
 
 const initialState: EventActionState = {};
 
@@ -24,6 +26,7 @@ export function EventRow({
   pointsPerGame,
   knockoutGamesPerMatch,
   knockoutPointsPerGame,
+  tieFormatSlots,
   entryCount,
   pendingApprovalCount,
 }: {
@@ -36,6 +39,7 @@ export function EventRow({
   pointsPerGame: number;
   knockoutGamesPerMatch: number | null;
   knockoutPointsPerGame: number | null;
+  tieFormatSlots: TieFormatSlotInput[];
   entryCount: number;
   pendingApprovalCount: number;
 }) {
@@ -43,25 +47,28 @@ export function EventRow({
   const deleteWithId = deleteEvent.bind(null, eventId);
   const [state, formAction] = useActionState(updateWithId, initialState);
   const remountKey = useRemountKey(state);
+  const [liveCategory, setLiveCategory] = useState(category);
 
   return (
     <li className="flex flex-col gap-3 rounded-md border border-border px-4 py-3">
-      <form action={formAction} className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
+      <form action={formAction} className="flex flex-col gap-3">
         <Fragment key={remountKey}>
-          <EventNameFields initialName={name} initialCategory={category} />
-          <EventFormatFields
-            initialDrawFormat={drawFormat}
-            initialGameFormat={{ gamesPerMatch, pointsPerGame }}
-            initialKnockoutGameFormat={
-              knockoutGamesPerMatch !== null && knockoutPointsPerGame !== null
-                ? { gamesPerMatch: knockoutGamesPerMatch, pointsPerGame: knockoutPointsPerGame }
-                : null
-            }
-          />
+          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
+            <EventNameFields initialName={name} initialCategory={category} onCategoryChange={setLiveCategory} />
+            <EventFormatFields
+              category={liveCategory}
+              initialDrawFormat={drawFormat}
+              initialGameFormat={{ gamesPerMatch, pointsPerGame }}
+              initialKnockoutGameFormat={
+                knockoutGamesPerMatch !== null && knockoutPointsPerGame !== null
+                  ? { gamesPerMatch: knockoutGamesPerMatch, pointsPerGame: knockoutPointsPerGame }
+                  : null
+              }
+            />
+            <SubmitButton variant="secondary">Update</SubmitButton>
+          </div>
+          {liveCategory === "TEAM" && <TieFormatFields initialSlots={tieFormatSlots} />}
         </Fragment>
-        <div className="flex gap-2">
-          <SubmitButton variant="secondary">Update</SubmitButton>
-        </div>
       </form>
       <FormError message={state.error} />
       <div className="flex items-center justify-between">

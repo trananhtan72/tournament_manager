@@ -27,6 +27,7 @@ model User {
   tournaments         Tournament[]
   refereeRoles        TournamentReferee[]
   entryPlayers        EntryPlayer[]
+  teamMemberships     TeamMember[]
   payments            TournamentPayment[]
   notifications       Notification[]
   accounts            Account[]
@@ -85,6 +86,7 @@ model PasswordResetToken {
 enum EventCategory {
   SINGLES
   DOUBLES
+  TEAM
 }
 
 enum DrawFormat {
@@ -145,26 +147,30 @@ model TournamentReferee {
 }
 
 model Event {
-  id                    String        @id @default(cuid())
+  id                    String          @id @default(cuid())
   tournamentId          String
-  tournament            Tournament    @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  tournament            Tournament      @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
   name                  String
   category              EventCategory
-  drawFormat            DrawFormat    @default(SINGLE_ELIMINATION)
-  drawPublished         Boolean       @default(false)
+  drawFormat            DrawFormat      @default(SINGLE_ELIMINATION)
+  drawPublished         Boolean         @default(false)
   // Game rules: best of `gamesPerMatch` games, each to `pointsPerGame` (win by
   // 2, capped 9 above the target — BWF: 21 -> 30). Defaults are the BWF
   // standard. For pools+knockout these are the POOL-stage rules, and the
   // knockout* pair sets the knockout stage separately (null = same as pools).
-  gamesPerMatch         Int           @default(3)
-  pointsPerGame         Int           @default(21)
+  gamesPerMatch         Int             @default(3)
+  pointsPerGame         Int             @default(21)
   knockoutGamesPerMatch Int?
   knockoutPointsPerGame Int?
   entries               Entry[]
   matches               Match[]
   pools                 Pool[]
-  createdAt             DateTime      @default(now())
-  updatedAt             DateTime      @updatedAt
+  // TEAM-category events only — see Team/TieFormatSlot/Tie below.
+  teams                 Team[]
+  tieFormatSlots        TieFormatSlot[]
+  ties                  Tie[]
+  createdAt             DateTime        @default(now())
+  updatedAt             DateTime        @updatedAt
 
   @@unique([tournamentId, name])
 }
@@ -195,6 +201,11 @@ model Entry {
   matchesAsEntry1 Match[]       @relation("MatchEntry1")
   matchesAsEntry2 Match[]       @relation("MatchEntry2")
   matchesWon      Match[]       @relation("MatchWinner")
+  // Set when this Entry is a TEAM event's 1:1 shim for a Team (see Team.entryId).
+  team            Team?
+  tiesAsTeam1     Tie[]         @relation("TieTeam1")
+  tiesAsTeam2     Tie[]         @relation("TieTeam2")
+  tiesWon         Tie[]         @relation("TieWinner")
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
 
@@ -220,6 +231,13 @@ model Pool {
 
 // A player in an entry is either a registered User (userId set) or a
 // walk-in added directly by the organizer with just a name (guestName set).
+//
+// No @@unique([eventId, userId]) here (removed — previously enforced "a user
+// can only have one entry per event" at the DB level). That guarantee only
+// ever mattered for self-service registration, which is enforced instead by
+// an explicit check in registerSingles/registerWithPartner/quickAddEntry
+// (app/actions/entries.ts). A TEAM event's rubber matches legitimately give
+// the same player a fresh EntryPlayer row in every tie they play.
 model EntryPlayer {
   id        String          @id @default(cuid())
   entryId   String
@@ -231,8 +249,86 @@ model EntryPlayer {
   role      EntryPlayerRole
   confirmed Boolean         @default(true)
   createdAt DateTime        @default(now())
+}
 
-  @@unique([eventId, userId])
+// A team registered for a TEAM-category event. Gets a 1:1 shim Entry
+// (entryId) purely so the existing bracket/round-robin draw generation and
+// standings code — which only ever operates on an Entry id, never on what's
+// "inside" it — can run completely unchanged at the team level. See
+// lib/tournament/ties.ts.
+model Team {
+  id        String       @id @default(cuid())
+  eventId   String
+  event     Event        @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  name      String
+  entryId   String?      @unique
+  entry     Entry?       @relation(fields: [entryId], references: [id])
+  members   TeamMember[]
+  createdAt DateTime     @default(now())
+
+  @@unique([eventId, name])
+}
+
+// A player on a team's roster — a registered User (userId set) or a
+// walk-in (guestName set), the same user-or-guest convention as EntryPlayer.
+// Rosters have no fixed player-to-slot mapping; who plays which tie slot is
+// decided per tie (see Tie, and submitTieLineup in app/actions/ties.ts).
+model TeamMember {
+  id        String   @id @default(cuid())
+  teamId    String
+  team      Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id])
+  guestName String?
+  createdAt DateTime @default(now())
+}
+
+enum TieSlotType {
+  SINGLES
+  DOUBLES
+}
+
+// One slot in a TEAM event's tie format template — e.g. "Singles 1",
+// "Doubles 2" — applied to every tie in the event. Together these slots
+// define how many individual rubbers make up a tie (the "standard 5-match
+// tie," or any custom count) and each rubber's type and game format. See
+// lib/tournament/tieFormat.ts for the standard preset and custom validation.
+model TieFormatSlot {
+  id            String      @id @default(cuid())
+  eventId       String
+  event         Event       @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  order         Int
+  label         String
+  type          TieSlotType
+  gamesPerMatch Int
+  pointsPerGame Int
+
+  @@unique([eventId, order])
+}
+
+// The bracket/round-robin slot for one team-vs-team pairing in a TEAM
+// event — takes over the role Match's round/position/entry1/entry2/winner/
+// isBye play for individual events, but at the team level. A Tie is never
+// scored directly: its outcome is aggregated from its individual rubber
+// Matches (Match.tieId) by computeTieWinner in lib/tournament/ties.ts.
+model Tie {
+  id          String   @id @default(cuid())
+  eventId     String
+  event       Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  round       Int
+  position    Int
+  team1Id     String?
+  team1Entry  Entry?   @relation("TieTeam1", fields: [team1Id], references: [id])
+  team2Id     String?
+  team2Entry  Entry?   @relation("TieTeam2", fields: [team2Id], references: [id])
+  winnerId    String?
+  winnerEntry Entry?   @relation("TieWinner", fields: [winnerId], references: [id])
+  isBye       Boolean  @default(false)
+  matches     Match[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([eventId, round, position])
 }
 
 // One athlete's payment record for a whole tournament (every event they've
@@ -288,6 +384,14 @@ model Match {
   event         Event              @relation(fields: [eventId], references: [id], onDelete: Cascade)
   poolId        String?
   pool          Pool?              @relation(fields: [poolId], references: [id], onDelete: Cascade)
+  // Set only for a TEAM event's individual rubber matches: which Tie this
+  // belongs to, and which slot (e.g. "Singles 1") it fills. A rubber's
+  // position is offset as `tie.position * 100 + slotIndex`, well clear of
+  // any realistic tie/slot count, so @@unique([eventId, round, position])
+  // below never collides with another rubber or a team-level bracket slot.
+  tieId         String?
+  tie           Tie?               @relation(fields: [tieId], references: [id], onDelete: Cascade)
+  tieSlotLabel  String?
   round         Int
   position      Int
   entry1Id      String?
@@ -298,6 +402,13 @@ model Match {
   winner        Entry?             @relation("MatchWinner", fields: [winnerId], references: [id])
   isBye         Boolean            @default(false)
   status        MatchStatus?
+  // Per-match override of the event's game format — set for a TEAM event's
+  // rubber matches (copied from their TieFormatSlot when the lineup is
+  // submitted), since one team event can mix singles- and doubles-format
+  // rubbers. Null for every other match, which keeps using the event-level
+  // format via gameFormatForMatch() in lib/tournament/gameFormat.ts.
+  gamesPerMatch Int?
+  pointsPerGame Int?
   // Optional schedule slot. scheduledAt is a "floating" wall-clock time: the
   // UTC fields hold the venue's local time (like the tournament dates, which
   // are stored as UTC midnight), so it's always read and shown in UTC.

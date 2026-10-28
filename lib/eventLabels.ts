@@ -15,6 +15,7 @@ export const matchStatusLabels: Record<MatchStatus, string> = {
 export const categoryLabels: Record<EventCategory, string> = {
   SINGLES: "Singles",
   DOUBLES: "Doubles",
+  TEAM: "Team",
 };
 
 export function isDoublesCategory(category: EventCategory): boolean {

@@ -64,7 +64,7 @@ export default async function CourtDisplayPage({ params }: PageProps<"/t/[slug]/
     `${m.event.name} · ${stageLabel(
       { poolName: m.pool?.name ?? null, round: m.round },
       { drawFormat: m.event.drawFormat, knockoutRounds: knockoutRoundCount(m.event.matches) },
-    )}`;
+    )}${m.tieSlotLabel ? ` · ${m.tieSlotLabel}` : ""}`;
   const namesOf = (m: (typeof matches)[number]): [string, string] => [
     m.entry1 ? entryScoreboardName(m.entry1) : "TBD",
     m.entry2 ? entryScoreboardName(m.entry2) : "TBD",

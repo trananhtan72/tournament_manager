@@ -36,6 +36,7 @@ export async function recordMatchResult(
     round: number;
     position: number;
     poolId: string | null;
+    tieId: string | null;
     event: { drawFormat: "SINGLE_ELIMINATION" | "ROUND_ROBIN" | "POOLS_KNOCKOUT" };
   },
   result: RecordedResult,
@@ -69,7 +70,10 @@ export async function recordMatchResult(
   // into — that's single elimination itself, or the knockout stage of
   // pools+knockout (poolId null there; pool-stage matches always have one,
   // and round robin never has a round to advance into in the first place).
-  const isBracketMatch = match.event.drawFormat === "SINGLE_ELIMINATION" || match.poolId === null;
+  // A team event's rubber match (tieId set) is never a bracket slot itself —
+  // its round/position encode its tie and slot, not a Match-level bracket —
+  // so it never cascades here; recomputeTieResult handles tie-level outcomes.
+  const isBracketMatch = !match.tieId && (match.event.drawFormat === "SINGLE_ELIMINATION" || match.poolId === null);
   if (isBracketMatch && match.event.drawFormat !== "ROUND_ROBIN") {
     const allMatches = await prisma.match.findMany({
       where: { eventId: match.eventId, poolId: null },

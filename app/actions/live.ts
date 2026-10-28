@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { requireUserId } from "@/lib/session";
 import { revalidateTournament } from "@/lib/revalidate";
 import { recordMatchResult } from "@/lib/recordMatchResult";
+import { recomputeTieResult } from "@/lib/recordTieResult";
 import { cascadeRescheduleAfterMatch } from "@/lib/cascadeReschedule";
 import { gameFormatForMatch } from "@/lib/tournament/gameFormat";
 import { completedGames, isSide, replayPoints, type Side } from "@/lib/tournament/liveScoring";
@@ -226,6 +227,7 @@ export async function confirmLiveResult(
     },
     { keepLivePoints: true },
   );
+  if (match.tieId) await recomputeTieResult(match.tieId);
   await cascadeRescheduleAfterMatch(matchId, actualEnd);
   revalidateTournament(match.event.tournament.slug);
   return {};

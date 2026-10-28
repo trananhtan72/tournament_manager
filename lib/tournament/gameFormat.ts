@@ -73,12 +73,21 @@ export type EventGameFormatFields = {
 };
 
 /**
- * The rules that apply to one match. Every event has one game format, except
- * pools+knockout, which has one for the pool stage (the event's main format)
- * and can have a different one for the knockout stage — pool-stage matches
- * always carry a poolId, knockout ones never do.
+ * The rules that apply to one match. A match carrying its own format (a team
+ * event's rubber, set from its `TieFormatSlot`) always uses that, since one
+ * team event's rubbers can mix singles/doubles formats — otherwise every
+ * event has one game format, except pools+knockout, which has one for the
+ * pool stage (the event's main format) and can have a different one for the
+ * knockout stage — pool-stage matches always carry a poolId, knockout ones
+ * never do.
  */
-export function gameFormatForMatch(event: EventGameFormatFields, match: { poolId: string | null }): GameFormat {
+export function gameFormatForMatch(
+  event: EventGameFormatFields,
+  match: { poolId: string | null; gamesPerMatch?: number | null; pointsPerGame?: number | null },
+): GameFormat {
+  if (match.gamesPerMatch != null && match.pointsPerGame != null) {
+    return { gamesPerMatch: match.gamesPerMatch, pointsPerGame: match.pointsPerGame };
+  }
   const main = { gamesPerMatch: event.gamesPerMatch, pointsPerGame: event.pointsPerGame };
   if (event.drawFormat !== "POOLS_KNOCKOUT" || match.poolId !== null) return main;
   return {

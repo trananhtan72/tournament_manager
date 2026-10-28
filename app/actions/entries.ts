@@ -85,6 +85,13 @@ export async function registerSingles(
   const blocked = registrationBlockedReason(event.tournament);
   if (blocked) return { error: blocked };
 
+  // EntryPlayer no longer enforces one-registration-per-user at the DB level
+  // (a team event's rubbers legitimately give a player several EntryPlayer
+  // rows), so self-service registration checks for a duplicate itself.
+  if (await prisma.entryPlayer.findFirst({ where: { eventId, userId } })) {
+    return { error: "You're already registered for this event." };
+  }
+
   try {
     await prisma.entry.create({
       data: {
@@ -123,6 +130,10 @@ export async function registerNeedsPartner(
   if (!isDoublesCategory(event.category)) return { error: "This event doesn't take a partner." };
   const blocked = registrationBlockedReason(event.tournament);
   if (blocked) return { error: blocked };
+
+  if (await prisma.entryPlayer.findFirst({ where: { eventId, userId } })) {
+    return { error: "You're already registered for this event." };
+  }
 
   try {
     await prisma.entry.create({
@@ -532,11 +543,12 @@ export async function pairEntries(
   return {};
 }
 
-type PlayerSlotResolution =
+export type PlayerSlotResolution =
   | { ok: true; userId: string | null; guestName: string | null }
   | { ok: false; error: string };
 
-async function resolvePlayerSlot(name: string, email: string): Promise<PlayerSlotResolution> {
+/** Resolves one "name + optional email" form input into a user-or-guest player slot. */
+export async function resolvePlayerSlot(name: string, email: string): Promise<PlayerSlotResolution> {
   const trimmedName = name.trim();
   if (!trimmedName) {
     return { ok: false, error: "Enter a name for each player." };

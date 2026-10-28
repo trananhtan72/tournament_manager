@@ -20,7 +20,7 @@ export default async function EventEntriesPage({
   const userId = await requireOrganizerId();
 
   const event = await prisma.event.findFirst({
-    where: { id: eventId, tournament: { slug, organizerId: userId } },
+    where: { id: eventId, tournament: { slug, organizerId: userId }, category: { not: "TEAM" } },
     include: {
       entries: {
         include: { players: { include: { user: true } } },

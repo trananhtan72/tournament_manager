@@ -10,7 +10,7 @@ export default async function EntriesIndexPage({
   const userId = await requireOrganizerId();
 
   const first = await prisma.event.findFirst({
-    where: { tournament: { slug, organizerId: userId } },
+    where: { tournament: { slug, organizerId: userId }, category: { not: "TEAM" } },
     orderBy: { name: "asc" },
     select: { id: true },
   });

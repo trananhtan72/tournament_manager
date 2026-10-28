@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { TextField } from "@/components/TextField";
 import { SelectField } from "@/components/SelectField";
 import { EVENT_NAME_PRESETS, OTHER_EVENT_NAME, categoryLabels } from "@/lib/eventLabels";
@@ -9,9 +9,12 @@ import type { EventCategory } from "@prisma/client";
 export function EventNameFields({
   initialName,
   initialCategory,
+  onCategoryChange,
 }: {
   initialName?: string;
   initialCategory?: EventCategory;
+  /** Lets a parent form show category-specific fields alongside this one (e.g. a tie-format editor for TEAM). */
+  onCategoryChange?: (category: EventCategory) => void;
 }) {
   const matchingPreset = EVENT_NAME_PRESETS.find(
     (p) => p.name === initialName && p.category === initialCategory,
@@ -32,6 +35,10 @@ export function EventNameFields({
   const preset = EVENT_NAME_PRESETS.find((p) => p.name === selected);
   const finalName = isOther ? customName : (preset?.name ?? "");
   const finalCategory = isOther ? customCategory : (preset?.category ?? "SINGLES");
+
+  useEffect(() => {
+    onCategoryChange?.(finalCategory);
+  }, [finalCategory, onCategoryChange]);
 
   return (
     <>

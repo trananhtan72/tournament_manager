@@ -214,6 +214,7 @@ export default async function MatchCenterPage({
         <div className="flex flex-wrap items-baseline justify-between gap-x-3 text-xs">
           <span className="font-medium text-text">
             {eventName} · {stage}
+            {match.tieSlotLabel ? ` · ${match.tieSlotLabel}` : ""}
           </span>
           <span className="text-muted">{formatScheduleLabel(match) ?? "Not scheduled"}</span>
         </div>

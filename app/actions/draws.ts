@@ -22,6 +22,7 @@ import {
   selectKnockoutAdvancers,
   inferAdvancesPerPool,
 } from "@/lib/tournament/pools";
+import { generateKnockoutTies, generateRoundRobinTies } from "@/lib/tournament/ties";
 
 export type DrawActionState = { error?: string };
 
@@ -38,6 +39,11 @@ async function clearExistingDraw(eventId: string): Promise<void> {
     prisma.pool.deleteMany({ where: { eventId } }),
     prisma.entry.updateMany({ where: { eventId }, data: { poolId: null } }),
   ]);
+}
+
+/** Deleting a Tie cascades to its rubber Matches (Match.tieId onDelete: Cascade). */
+async function clearExistingTeamDraw(eventId: string): Promise<void> {
+  await prisma.tie.deleteMany({ where: { eventId } });
 }
 
 /**
@@ -79,6 +85,62 @@ export async function generateDraw(
     where: { eventId, status: "CONFIRMED" },
     select: { id: true, seed: true },
   });
+
+  if (event.category === "TEAM") {
+    // A team IS a shim Entry (Team.entryId), so confirmedEntries above are
+    // really the confirmed teams here — the same seeding/pairing algorithms
+    // apply, just written out as Tie rows instead of Match rows.
+    if (event.drawFormat === "SINGLE_ELIMINATION") {
+      if (confirmedEntries.length < MIN_BRACKET_ENTRIES) {
+        return {
+          error: `Need at least ${MIN_BRACKET_ENTRIES} confirmed teams to generate a draw (have ${confirmedEntries.length}).`,
+        };
+      }
+      if (confirmedEntries.length > MAX_BRACKET_ENTRIES) {
+        return {
+          error: `Single elimination supports at most ${MAX_BRACKET_ENTRIES} teams (have ${confirmedEntries.length}).`,
+        };
+      }
+
+      const seededEntries: SeededEntry[] = confirmedEntries.map((e) => ({ entryId: e.id, seed: e.seed }));
+      let ties;
+      try {
+        ties = generateKnockoutTies(seededEntries);
+      } catch (error) {
+        return { error: error instanceof Error ? error.message : "Couldn't generate the draw." };
+      }
+
+      await clearExistingTeamDraw(eventId);
+      await prisma.tie.createMany({
+        data: ties.map((t) => ({
+          eventId,
+          round: t.round,
+          position: t.position,
+          team1Id: t.team1Id,
+          team2Id: t.team2Id,
+          winnerId: t.winnerId,
+          isBye: t.isBye,
+        })),
+      });
+    } else if (event.drawFormat === "ROUND_ROBIN") {
+      if (confirmedEntries.length < MIN_ROUND_ROBIN_ENTRIES) {
+        return {
+          error: `Need at least ${MIN_ROUND_ROBIN_ENTRIES} confirmed teams for round robin (have ${confirmedEntries.length}).`,
+        };
+      }
+
+      const ties = generateRoundRobinTies(confirmedEntries.map((e) => e.id));
+      await clearExistingTeamDraw(eventId);
+      await prisma.tie.createMany({
+        data: ties.map((t) => ({ eventId, round: 1, position: t.position, team1Id: t.team1Id, team2Id: t.team2Id })),
+      });
+    } else {
+      return { error: "Team events support knockout or round robin for now." };
+    }
+
+    revalidateTournament(event.tournament.slug);
+    return {};
+  }
 
   if (event.drawFormat === "SINGLE_ELIMINATION") {
     if (confirmedEntries.length < MIN_BRACKET_ENTRIES) {
@@ -391,6 +453,40 @@ export async function publishDraw(eventId: string): Promise<void> {
   const userId = await requireUserId();
   const event = await requireOwnedEvent(eventId, userId);
   if (!event) redirect("/organizer");
+
+  if (event.category === "TEAM") {
+    const ties = await prisma.tie.findMany({
+      where: { eventId },
+      include: {
+        team1Entry: { include: { team: { include: { members: true } } } },
+        team2Entry: { include: { team: { include: { members: true } } } },
+      },
+    });
+    if (ties.length === 0) redirect(`/organizer/${event.tournament.slug}/draws`);
+
+    await prisma.event.update({ where: { id: eventId }, data: { drawPublished: true } });
+
+    const notifiedUserIds = new Set<string>();
+    for (const tie of ties) {
+      for (const entry of [tie.team1Entry, tie.team2Entry]) {
+        for (const member of entry?.team?.members ?? []) {
+          if (member.userId) notifiedUserIds.add(member.userId);
+        }
+      }
+    }
+    await Promise.all(
+      [...notifiedUserIds].map((uid) =>
+        notify(
+          uid,
+          `The draw for ${event.name} at ${event.tournament.name} has been published.`,
+          `/t/${event.tournament.slug}/${eventId}`,
+        ),
+      ),
+    );
+
+    revalidateTournament(event.tournament.slug);
+    return;
+  }
 
   // Not scoped to round 1: single elimination and round robin both place
   // every entry there, but pools+knockout's pool stage lives at round 0.

@@ -10,9 +10,10 @@ export default async function EntriesLayout({
   const { slug } = await params;
   const userId = await requireOrganizerId();
 
-  // Scoped to the signed-in organizer, so someone else's events never render here.
+  // Scoped to the signed-in organizer, so someone else's events never render
+  // here. TEAM events manage their roster under /teams instead.
   const events = await prisma.event.findMany({
-    where: { tournament: { slug, organizerId: userId } },
+    where: { tournament: { slug, organizerId: userId }, category: { not: "TEAM" } },
     orderBy: { name: "asc" },
     select: { id: true, name: true, entries: { select: { status: true } } },
   });

@@ -85,6 +85,30 @@ describe("gameFormatForMatch", () => {
     expect(gameFormatForMatch(event, { poolId: null })).toEqual({ gamesPerMatch: 5, pointsPerGame: 11 });
   });
 
+  it("prefers a match's own format over the event's, for a team event's mixed-format rubbers", () => {
+    expect(gameFormatForMatch(base, { poolId: null, gamesPerMatch: 1, pointsPerGame: 15 })).toEqual({
+      gamesPerMatch: 1,
+      pointsPerGame: 15,
+    });
+    // Even under pools+knockout, a match override wins over either stage's format.
+    const pk: EventGameFormatFields = { ...base, drawFormat: "POOLS_KNOCKOUT", knockoutGamesPerMatch: 5 };
+    expect(gameFormatForMatch(pk, { poolId: null, gamesPerMatch: 1, pointsPerGame: 15 })).toEqual({
+      gamesPerMatch: 1,
+      pointsPerGame: 15,
+    });
+  });
+
+  it("ignores a partial match override (only one of the two fields set)", () => {
+    expect(gameFormatForMatch(base, { poolId: null, gamesPerMatch: 1, pointsPerGame: null })).toEqual({
+      gamesPerMatch: 3,
+      pointsPerGame: 21,
+    });
+    expect(gameFormatForMatch(base, { poolId: null, gamesPerMatch: null, pointsPerGame: 15 })).toEqual({
+      gamesPerMatch: 3,
+      pointsPerGame: 21,
+    });
+  });
+
   it("describes both stages for pools+knockout", () => {
     const event: EventGameFormatFields = {
       drawFormat: "POOLS_KNOCKOUT",

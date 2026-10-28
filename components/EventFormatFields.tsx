@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { DrawFormat } from "@prisma/client";
+import type { DrawFormat, EventCategory } from "@prisma/client";
 import { SelectField } from "@/components/SelectField";
 import { TextField } from "@/components/TextField";
 import { drawFormatLabels } from "@/lib/eventLabels";
@@ -146,15 +146,28 @@ export function EventFormatFields({
   initialDrawFormat = "SINGLE_ELIMINATION",
   initialGameFormat = DEFAULT_GAME_FORMAT,
   initialKnockoutGameFormat = null,
+  category,
 }: {
   initialDrawFormat?: DrawFormat;
   initialGameFormat?: GameFormat;
   /** Null means the knockout stage uses the same format as the pool stage. */
   initialKnockoutGameFormat?: GameFormat | null;
+  /**
+   * A TEAM event gets its game format from each tie slot instead (see
+   * TieFormatFields), and doesn't offer pools+knockout yet (deferred) — so
+   * neither the game-format pickers nor that draw-format option are shown.
+   */
+  category?: EventCategory;
 }) {
-  const [drawFormat, setDrawFormat] = useState<DrawFormat>(initialDrawFormat);
+  const isTeam = category === "TEAM";
+  const [drawFormat, setDrawFormat] = useState<DrawFormat>(
+    isTeam && initialDrawFormat === "POOLS_KNOCKOUT" ? "SINGLE_ELIMINATION" : initialDrawFormat,
+  );
   const { anchorRef, resetKey } = useFormResetKey();
-  const isPools = drawFormat === "POOLS_KNOCKOUT";
+  const isPools = !isTeam && drawFormat === "POOLS_KNOCKOUT";
+  const drawFormatOptions = Object.entries(drawFormatLabels).filter(
+    ([value]) => !isTeam || value !== "POOLS_KNOCKOUT",
+  );
 
   return (
     <>
@@ -167,25 +180,29 @@ export function EventFormatFields({
         onChange={(e) => setDrawFormat(e.target.value as DrawFormat)}
         required
       >
-        {Object.entries(drawFormatLabels).map(([value, label]) => (
+        {drawFormatOptions.map(([value, label]) => (
           <option key={value} value={value}>
             {label}
           </option>
         ))}
       </SelectField>
-      <GameFormatPicker
-        label={isPools ? "Pool stage game format" : "Game format"}
-        fieldPrefix=""
-        initial={initialGameFormat}
-        selectKey={resetKey}
-      />
-      {isPools && (
-        <GameFormatPicker
-          label="Knockout stage game format"
-          fieldPrefix="knockout"
-          initial={initialKnockoutGameFormat ?? initialGameFormat}
-          selectKey={resetKey}
-        />
+      {!isTeam && (
+        <>
+          <GameFormatPicker
+            label={isPools ? "Pool stage game format" : "Game format"}
+            fieldPrefix=""
+            initial={initialGameFormat}
+            selectKey={resetKey}
+          />
+          {isPools && (
+            <GameFormatPicker
+              label="Knockout stage game format"
+              fieldPrefix="knockout"
+              initial={initialKnockoutGameFormat ?? initialGameFormat}
+              selectKey={resetKey}
+            />
+          )}
+        </>
       )}
     </>
   );

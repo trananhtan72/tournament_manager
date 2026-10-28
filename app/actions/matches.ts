@@ -4,6 +4,7 @@ import { revalidateTournament } from "@/lib/revalidate";
 import { prisma } from "@/lib/prisma";
 import { requireUserId } from "@/lib/session";
 import { recordMatchResult } from "@/lib/recordMatchResult";
+import { recomputeTieResult } from "@/lib/recordTieResult";
 import { cascadeRescheduleAfterMatch } from "@/lib/cascadeReschedule";
 import { validateCompletedMatch, type GameScore } from "@/lib/tournament/scoring";
 import { gameFormatForMatch } from "@/lib/tournament/gameFormat";
@@ -95,6 +96,7 @@ export async function submitMatchResult(
   if (!actualEnd) return { error: "Couldn't read the current time. Reload the page and try again." };
 
   await recordMatchResult(match, { status, winnerId, games, startedAt, actualEnd });
+  if (match.tieId) await recomputeTieResult(match.tieId);
   await cascadeRescheduleAfterMatch(matchId, actualEnd);
 
   revalidateTournament(match.event.tournament.slug);

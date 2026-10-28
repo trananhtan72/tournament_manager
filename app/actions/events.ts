@@ -10,13 +10,15 @@ import {
   ALLOWED_GAMES_PER_MATCH,
   MIN_POINTS_PER_GAME,
   MAX_POINTS_PER_GAME,
+  DEFAULT_GAME_FORMAT,
 } from "@/lib/tournament/gameFormat";
+import { validateTieFormatSlots, type TieFormatSlotInput } from "@/lib/tournament/tieFormat";
 
 export type EventActionState = { error?: string };
 
 const eventSchema = z.object({
   name: z.string().trim().min(1, "Enter an event name").max(100),
-  category: z.enum(["SINGLES", "DOUBLES"], {
+  category: z.enum(["SINGLES", "DOUBLES", "TEAM"], {
     error: "Choose a category",
   }),
   drawFormat: z.enum(
@@ -24,6 +26,41 @@ const eventSchema = z.object({
     { error: "Choose a draw format" },
   ),
 });
+
+type ParsedTieFormat = { ok: true; data: TieFormatSlotInput[] } | { ok: false; error: string };
+
+/** A TEAM event's tie format, submitted as one JSON field by TieFormatFields. */
+function parseTieFormatSlots(formData: FormData): ParsedTieFormat {
+  const raw = formData.get("tieFormatSlotsJson");
+  if (typeof raw !== "string") {
+    return { ok: false, error: "Choose a tie format." };
+  }
+  let slots: unknown;
+  try {
+    slots = JSON.parse(raw);
+  } catch {
+    return { ok: false, error: "Invalid tie format." };
+  }
+  if (
+    !Array.isArray(slots) ||
+    !slots.every(
+      (s): s is TieFormatSlotInput =>
+        typeof s === "object" &&
+        s !== null &&
+        typeof s.order === "number" &&
+        typeof s.label === "string" &&
+        (s.type === "SINGLES" || s.type === "DOUBLES") &&
+        typeof s.gamesPerMatch === "number" &&
+        typeof s.pointsPerGame === "number",
+    )
+  ) {
+    return { ok: false, error: "Invalid tie format." };
+  }
+
+  const validation = validateTieFormatSlots(slots);
+  if (!validation.valid) return { ok: false, error: validation.error };
+  return { ok: true, data: slots };
+}
 
 const gameFormatSchema = z.object({
   gamesPerMatch: z.coerce
@@ -116,6 +153,36 @@ export async function createEvent(
     return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
   }
 
+  if (parsed.data.category === "TEAM") {
+    // Pools+knockout team advancement is deferred to a later phase.
+    if (parsed.data.drawFormat === "POOLS_KNOCKOUT") {
+      return { error: "Team events support knockout or round robin for now." };
+    }
+    const tieFormat = parseTieFormatSlots(formData);
+    if (!tieFormat.ok) return { error: tieFormat.error };
+
+    try {
+      await prisma.event.create({
+        data: {
+          ...parsed.data,
+          ...DEFAULT_GAME_FORMAT,
+          knockoutGamesPerMatch: null,
+          knockoutPointsPerGame: null,
+          tournamentId,
+          tieFormatSlots: { create: tieFormat.data },
+        },
+      });
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+        return { error: "This tournament already has an event with that name." };
+      }
+      throw error;
+    }
+
+    revalidateTournament(tournament.slug);
+    return {};
+  }
+
   const formats = parseGameFormats(formData, parsed.data.drawFormat);
   if (!formats.ok) return { error: formats.error };
 
@@ -171,12 +238,52 @@ export async function updateEvent(
   }
 
   if (parsed.data.drawFormat !== event.drawFormat) {
-    const matchCount = await prisma.match.count({ where: { eventId } });
-    if (matchCount > 0) {
+    const [matchCount, tieCount] = await Promise.all([
+      prisma.match.count({ where: { eventId } }),
+      prisma.tie.count({ where: { eventId } }),
+    ]);
+    if (matchCount > 0 || tieCount > 0) {
       return {
         error: "Can't change the draw format — a draw has already been generated for this event.",
       };
     }
+  }
+
+  if (parsed.data.category === "TEAM") {
+    if (parsed.data.drawFormat === "POOLS_KNOCKOUT") {
+      return { error: "Team events support knockout or round robin for now." };
+    }
+    const tieFormat = parseTieFormatSlots(formData);
+    if (!tieFormat.ok) return { error: tieFormat.error };
+
+    const tieCount = await prisma.tie.count({ where: { eventId } });
+    if (tieCount > 0) {
+      return { error: "Can't change the tie format — a draw has already been generated for this event." };
+    }
+
+    try {
+      await prisma.$transaction([
+        prisma.tieFormatSlot.deleteMany({ where: { eventId } }),
+        prisma.event.update({
+          where: { id: eventId },
+          data: {
+            ...parsed.data,
+            ...DEFAULT_GAME_FORMAT,
+            knockoutGamesPerMatch: null,
+            knockoutPointsPerGame: null,
+            tieFormatSlots: { create: tieFormat.data },
+          },
+        }),
+      ]);
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+        return { error: "This tournament already has an event with that name." };
+      }
+      throw error;
+    }
+
+    revalidateTournament(event.tournament.slug);
+    return {};
   }
 
   const formats = parseGameFormats(formData, parsed.data.drawFormat);
@@ -209,10 +316,16 @@ export async function updateEvent(
   }
 
   try {
-    await prisma.event.update({
-      where: { id: eventId },
-      data: { ...parsed.data, ...formats.data },
-    });
+    // Cleans up a leftover tie format if this event is switching away from
+    // TEAM (a no-op otherwise) — the entryCount guard above already ensures
+    // no team has been created yet, so there's nothing else to unwind.
+    await prisma.$transaction([
+      prisma.tieFormatSlot.deleteMany({ where: { eventId } }),
+      prisma.event.update({
+        where: { id: eventId },
+        data: { ...parsed.data, ...formats.data },
+      }),
+    ]);
   } catch (error) {
     if (
       error instanceof Prisma.PrismaClientKnownRequestError &&

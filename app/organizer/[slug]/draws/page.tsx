@@ -6,6 +6,7 @@ import { drawFormatLabels } from "@/lib/eventLabels";
 import { drawSize, drawStage } from "@/lib/tournament/drawSummary";
 import { SimpleTable } from "@/components/SimpleTable";
 import { EventDrawManager, drawEventInclude } from "@/app/organizer/[slug]/draws/EventDrawManager";
+import { TeamDrawManager, teamDrawEventInclude } from "@/app/organizer/[slug]/teams/TeamDrawManager";
 
 export const metadata: Metadata = { title: "Draws" };
 
@@ -17,7 +18,7 @@ export default async function OrganizerDrawsPage({
 
   const tournament = await prisma.tournament.findFirst({
     where: { slug, organizerId: userId },
-    include: { events: { orderBy: { name: "asc" }, include: drawEventInclude } },
+    include: { events: { orderBy: { name: "asc" }, include: { ...drawEventInclude, ...teamDrawEventInclude } } },
   });
   if (!tournament) notFound();
 
@@ -26,12 +27,13 @@ export default async function OrganizerDrawsPage({
   }
 
   // A draft draw is generated, previewed, and published from that event's
-  // Manage entries tab; this tab only shows a draw once it's published.
+  // Manage entries (or Teams) tab; this tab only shows a draw once it's
+  // published. A TEAM event's draw is Tie rows, not Match rows.
   const publishedEvents = tournament.events.filter((event) => event.drawPublished);
   if (publishedEvents.length === 0) {
     return (
       <p className="text-sm text-muted">
-        No published draws yet. Generate and publish a draw from an event&apos;s Manage entries tab.
+        No published draws yet. Generate and publish a draw from an event&apos;s Manage entries (or Teams) tab.
       </p>
     );
   }
@@ -46,16 +48,20 @@ export default async function OrganizerDrawsPage({
             <a key="draw" href={`#draw-${event.id}`} className="font-medium underline">
               {event.name}
             </a>,
-            drawSize(event.drawFormat, event.matches),
+            event.category === "TEAM" ? `${event.teams.length} teams` : drawSize(event.drawFormat, event.matches),
             drawFormatLabels[event.drawFormat],
-            drawStage(event.drawFormat, event.matches),
+            event.category === "TEAM" ? "" : drawStage(event.drawFormat, event.matches),
           ],
         }))}
       />
 
-      {publishedEvents.map((event) => (
-        <EventDrawManager key={event.id} event={event} tournamentName={tournament.name} slug={slug} />
-      ))}
+      {publishedEvents.map((event) =>
+        event.category === "TEAM" ? (
+          <TeamDrawManager key={event.id} event={event} slug={slug} />
+        ) : (
+          <EventDrawManager key={event.id} event={event} tournamentName={tournament.name} slug={slug} />
+        ),
+      )}
     </div>
   );
 }
