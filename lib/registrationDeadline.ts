@@ -1,3 +1,5 @@
+import { formatDate } from "./formatDate";
+
 // Tournament dates are stored as UTC midnight of the calendar day. A deadline
 // stays open through the end of its day; an "opens" date starts at the
 // beginning of its day.
@@ -33,4 +35,16 @@ export function withdrawalIsOpen(
   now: Date = new Date(),
 ): boolean {
   return registrationIsOpen(effectiveWithdrawalDeadline(tournament), now);
+}
+
+/** Why registration can't happen right now, or null if it can. */
+export function registrationBlockedReason(tournament: {
+  registrationOpensAt: Date | null;
+  registrationDeadline: Date;
+}): string | null {
+  const status = registrationStatus(tournament);
+  if (status === "open") return null;
+  return status === "not_open"
+    ? `Registration hasn't opened yet — entries open on ${formatDate(tournament.registrationOpensAt!)}.`
+    : "Registration is closed for this tournament.";
 }

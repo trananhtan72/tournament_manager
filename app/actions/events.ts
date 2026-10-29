@@ -25,6 +25,10 @@ const eventSchema = z.object({
     ["SINGLE_ELIMINATION", "ROUND_ROBIN", "POOLS_KNOCKOUT"],
     { error: "Choose a draw format" },
   ),
+  entryFee: z.preprocess(
+    (v) => (v === "" || v == null ? null : v),
+    z.coerce.number({ error: "Enter a valid entry fee" }).min(0, "Entry fee can't be negative").nullable(),
+  ),
 });
 
 type ParsedTieFormat = { ok: true; data: TieFormatSlotInput[] } | { ok: false; error: string };
@@ -148,6 +152,7 @@ export async function createEvent(
     name: formData.get("name"),
     category: formData.get("category"),
     drawFormat: formData.get("drawFormat"),
+    entryFee: formData.get("entryFee"),
   });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
@@ -223,6 +228,7 @@ export async function updateEvent(
     name: formData.get("name"),
     category: formData.get("category"),
     drawFormat: formData.get("drawFormat"),
+    entryFee: formData.get("entryFee"),
   });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid input" };

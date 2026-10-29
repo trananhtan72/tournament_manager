@@ -6,6 +6,7 @@ import type { TournamentActionState } from "@/app/actions/tournaments";
 import { TextField } from "@/components/TextField";
 import { SubmitButton } from "@/components/SubmitButton";
 import { FormError } from "@/components/FormError";
+import { MIN_EVENTS_PER_USER, MAX_EVENTS_PER_USER } from "@/lib/tournament/registrationLimits";
 
 const initialState: TournamentActionState = {};
 
@@ -21,6 +22,7 @@ export function EditTournamentForm({
   endDate,
   registrationDeadline,
   courtCount: initialCourtCount,
+  maxEventsPerUser: initialMaxEventsPerUser,
   registrationOpensAt,
   withdrawalDeadline,
 }: {
@@ -31,6 +33,7 @@ export function EditTournamentForm({
   endDate: Date;
   registrationDeadline: Date;
   courtCount: number;
+  maxEventsPerUser: number;
   registrationOpensAt: Date | null;
   withdrawalDeadline: Date | null;
 }) {
@@ -44,6 +47,7 @@ export function EditTournamentForm({
     toDateInputValue(registrationDeadline),
   );
   const [courtCount, setCourtCount] = useState(String(initialCourtCount));
+  const [maxEventsPerUser, setMaxEventsPerUser] = useState(String(initialMaxEventsPerUser));
   const [registrationOpensAtValue, setRegistrationOpensAtValue] = useState(toDateInputValue(registrationOpensAt));
   const [withdrawalDeadlineValue, setWithdrawalDeadlineValue] = useState(toDateInputValue(withdrawalDeadline));
 
@@ -91,22 +95,39 @@ export function EditTournamentForm({
           onChange={(e) => setRegistrationDeadlineValue(e.target.value)}
         />
       </div>
-      <TextField
-        label="Number of courts"
-        name="courtCount"
-        type="number"
-        inputMode="numeric"
-        required
-        min={1}
-        max={50}
-        step={1}
-        className="w-32"
-        value={courtCount}
-        onChange={(e) => setCourtCount(e.target.value)}
-      />
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <TextField
+          label="Number of courts"
+          name="courtCount"
+          type="number"
+          inputMode="numeric"
+          required
+          min={1}
+          max={50}
+          step={1}
+          className="w-32"
+          value={courtCount}
+          onChange={(e) => setCourtCount(e.target.value)}
+        />
+        <TextField
+          label="Max events per player"
+          name="maxEventsPerUser"
+          type="number"
+          inputMode="numeric"
+          required
+          min={MIN_EVENTS_PER_USER}
+          max={MAX_EVENTS_PER_USER}
+          step={1}
+          className="w-32"
+          value={maxEventsPerUser}
+          onChange={(e) => setMaxEventsPerUser(e.target.value)}
+        />
+      </div>
       <p className="-mt-2 text-xs text-muted">
         Matches are assigned to Court 1 … Court N when they&apos;re scored live, and each court gets its own
-        scoreboard screen for a TV or tablet.
+        scoreboard screen for a TV or tablet. &quot;Max events per player&quot; caps how many events one
+        player can register for — this can be changed any time and only limits new registrations going
+        forward.
       </p>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <TextField

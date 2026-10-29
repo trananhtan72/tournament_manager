@@ -6,6 +6,7 @@ import { updateEvent, deleteEvent } from "@/app/actions/events";
 import type { EventActionState } from "@/app/actions/events";
 import { SubmitButton } from "@/components/SubmitButton";
 import { FormError } from "@/components/FormError";
+import { TextField } from "@/components/TextField";
 import { ActionForm } from "@/components/ActionForm";
 import { EventNameFields } from "@/components/EventNameFields";
 import { EventFormatFields } from "@/components/EventFormatFields";
@@ -27,6 +28,7 @@ export function EventRow({
   knockoutGamesPerMatch,
   knockoutPointsPerGame,
   tieFormatSlots,
+  entryFee: initialEntryFee,
   entryCount,
   pendingApprovalCount,
 }: {
@@ -40,6 +42,7 @@ export function EventRow({
   knockoutGamesPerMatch: number | null;
   knockoutPointsPerGame: number | null;
   tieFormatSlots: TieFormatSlotInput[];
+  entryFee: string;
   entryCount: number;
   pendingApprovalCount: number;
 }) {
@@ -48,6 +51,7 @@ export function EventRow({
   const [state, formAction] = useActionState(updateWithId, initialState);
   const remountKey = useRemountKey(state);
   const [liveCategory, setLiveCategory] = useState(category);
+  const [entryFee, setEntryFee] = useState(initialEntryFee);
 
   return (
     <li className="flex flex-col gap-3 rounded-md border border-border px-4 py-3">
@@ -64,6 +68,17 @@ export function EventRow({
                   ? { gamesPerMatch: knockoutGamesPerMatch, pointsPerGame: knockoutPointsPerGame }
                   : null
               }
+            />
+            <TextField
+              label="Entry fee (optional)"
+              name="entryFee"
+              type="number"
+              inputMode="decimal"
+              min={0}
+              step="0.01"
+              className="w-28"
+              value={entryFee}
+              onChange={(e) => setEntryFee(e.target.value)}
             />
             <SubmitButton variant="secondary">Update</SubmitButton>
           </div>

@@ -7,8 +7,7 @@ import { revalidatePath } from "next/cache";
 import { revalidateTournament } from "@/lib/revalidate";
 import { prisma } from "@/lib/prisma";
 import { requireUserId } from "@/lib/session";
-import { registrationStatus, withdrawalIsOpen } from "@/lib/registrationDeadline";
-import { formatDate } from "@/lib/formatDate";
+import { withdrawalIsOpen } from "@/lib/registrationDeadline";
 import { isDoublesCategory } from "@/lib/eventLabels";
 import { notify } from "@/lib/notify";
 import { playerName, entryLabel } from "@/lib/playerDisplay";
@@ -22,7 +21,7 @@ async function getEventWithTournament(eventId: string) {
   });
 }
 
-type EventForNotice = {
+export type EventForNotice = {
   id: string;
   name: string;
   tournament: { slug: string; name: string; organizerId: string };
@@ -30,7 +29,7 @@ type EventForNotice = {
 
 // Tell the organizer a player has registered, with what (if anything) they
 // need to do about it. Skipped when the organizer is the one registering.
-async function notifyOrganizerOfRegistration(
+export async function notifyOrganizerOfRegistration(
   event: EventForNotice,
   actorUserId: string,
   who: string,
@@ -58,196 +57,6 @@ async function notifyEntryPlayers(
   await Promise.all(
     players.flatMap((p) => (p.userId ? [notify(p.userId, message, link)] : [])),
   );
-}
-
-/** Why registration can't happen right now, or null if it can. */
-function registrationBlockedReason(tournament: {
-  registrationOpensAt: Date | null;
-  registrationDeadline: Date;
-}): string | null {
-  const status = registrationStatus(tournament);
-  if (status === "open") return null;
-  return status === "not_open"
-    ? `Registration hasn't opened yet — entries open on ${formatDate(tournament.registrationOpensAt!)}.`
-    : "Registration is closed for this tournament.";
-}
-
-export async function registerSingles(
-  eventId: string,
-  _prevState: EntryActionState,
-  _formData: FormData,
-): Promise<EntryActionState> {
-  const userId = await requireUserId();
-
-  const event = await getEventWithTournament(eventId);
-  if (!event) return { error: "Event not found." };
-  if (isDoublesCategory(event.category)) return { error: "This event requires a partner." };
-  const blocked = registrationBlockedReason(event.tournament);
-  if (blocked) return { error: blocked };
-
-  // EntryPlayer no longer enforces one-registration-per-user at the DB level
-  // (a team event's rubbers legitimately give a player several EntryPlayer
-  // rows), so self-service registration checks for a duplicate itself.
-  if (await prisma.entryPlayer.findFirst({ where: { eventId, userId } })) {
-    return { error: "You're already registered for this event." };
-  }
-
-  try {
-    await prisma.entry.create({
-      data: {
-        eventId,
-        status: "PENDING_APPROVAL",
-        players: {
-          create: [{ eventId, userId, role: "INITIATOR", confirmed: true }],
-        },
-      },
-    });
-  } catch (error) {
-    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
-      return { error: "You're already registered for this event." };
-    }
-    throw error;
-  }
-
-  const me = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
-  await notifyOrganizerOfRegistration(event, userId, me.name, AWAITING_APPROVAL);
-
-  revalidateTournament(event.tournament.slug);
-  revalidateOrganizerViews(event);
-  revalidatePath("/dashboard");
-  return {};
-}
-
-export async function registerNeedsPartner(
-  eventId: string,
-  _prevState: EntryActionState,
-  _formData: FormData,
-): Promise<EntryActionState> {
-  const userId = await requireUserId();
-
-  const event = await getEventWithTournament(eventId);
-  if (!event) return { error: "Event not found." };
-  if (!isDoublesCategory(event.category)) return { error: "This event doesn't take a partner." };
-  const blocked = registrationBlockedReason(event.tournament);
-  if (blocked) return { error: blocked };
-
-  if (await prisma.entryPlayer.findFirst({ where: { eventId, userId } })) {
-    return { error: "You're already registered for this event." };
-  }
-
-  try {
-    await prisma.entry.create({
-      data: {
-        eventId,
-        status: "NEEDS_PARTNER",
-        players: {
-          create: [{ eventId, userId, role: "INITIATOR", confirmed: true }],
-        },
-      },
-    });
-  } catch (error) {
-    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
-      return { error: "You're already registered for this event." };
-    }
-    throw error;
-  }
-
-  const me = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
-  await notifyOrganizerOfRegistration(
-    event,
-    userId,
-    me.name,
-    " and needs a partner — you can pair them from the entries page.",
-  );
-
-  revalidateTournament(event.tournament.slug);
-  revalidateOrganizerViews(event);
-  revalidatePath("/dashboard");
-  return {};
-}
-
-const partnerEmailSchema = z.object({
-  partnerEmail: z.email("Enter your partner's email address"),
-});
-
-export async function registerWithPartner(
-  eventId: string,
-  _prevState: EntryActionState,
-  formData: FormData,
-): Promise<EntryActionState> {
-  const userId = await requireUserId();
-
-  const event = await getEventWithTournament(eventId);
-  if (!event) return { error: "Event not found." };
-  if (!isDoublesCategory(event.category)) return { error: "This event doesn't take a partner." };
-  const blocked = registrationBlockedReason(event.tournament);
-  if (blocked) return { error: blocked };
-
-  const parsed = partnerEmailSchema.safeParse({
-    partnerEmail: formData.get("partnerEmail"),
-  });
-  if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
-  }
-
-  const me = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
-  if (parsed.data.partnerEmail.toLowerCase() === me.email.toLowerCase()) {
-    return { error: "You can't invite yourself as a partner." };
-  }
-
-  const partner = await prisma.user.findUnique({
-    where: { email: parsed.data.partnerEmail },
-  });
-  if (!partner) {
-    return { error: "No account found with that email." };
-  }
-
-  const existing = await prisma.entryPlayer.findMany({
-    where: { eventId, userId: { in: [userId, partner.id] } },
-  });
-  if (existing.some((e) => e.userId === userId)) {
-    return { error: "You're already registered for this event." };
-  }
-  if (existing.some((e) => e.userId === partner.id)) {
-    return { error: "That player is already registered for this event." };
-  }
-
-  try {
-    await prisma.entry.create({
-      data: {
-        eventId,
-        status: "PENDING_PARTNER",
-        players: {
-          create: [
-            { eventId, userId, role: "INITIATOR", confirmed: true },
-            { eventId, userId: partner.id, role: "PARTNER", confirmed: false },
-          ],
-        },
-      },
-    });
-  } catch (error) {
-    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
-      return { error: "One of you is already registered for this event." };
-    }
-    throw error;
-  }
-
-  await notify(
-    partner.id,
-    `${me.name} invited you to be their partner for ${event.name} at ${event.tournament.name}.`,
-    "/dashboard",
-  );
-  await notifyOrganizerOfRegistration(
-    event,
-    userId,
-    me.name,
-    ` with ${partner.name} — waiting for ${partner.name} to confirm.`,
-  );
-
-  revalidateTournament(event.tournament.slug);
-  revalidateOrganizerViews(event);
-  revalidatePath("/dashboard");
-  return {};
 }
 
 async function requirePendingPartnerEntry(entryId: string, userId: string) {

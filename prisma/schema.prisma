@@ -110,6 +110,10 @@ model Tournament {
   withdrawalDeadline   DateTime?
   // How many courts the venue has (courts are named "Court 1" … "Court N").
   courtCount           Int                 @default(12)
+  // Caps how many events one player may be the INITIATOR of in this
+  // tournament (see RegistrationDialog) — doesn't count entries they only
+  // joined as an invited doubles partner.
+  maxEventsPerUser     Int                 @default(5)
   // One organizer-set duration for every match in the tournament, used
   // wherever match timing needs an assumed length — the bulk schedule tool,
   // the post-match cascade reschedule, and the dashboard's "next match"
@@ -162,6 +166,10 @@ model Event {
   pointsPerGame         Int             @default(21)
   knockoutGamesPerMatch Int?
   knockoutPointsPerGame Int?
+  // Informational only — shown to organizers and to players choosing events
+  // to register for. Doesn't feed TournamentPayment, which stays a separate,
+  // organizer-entered record of what was actually collected.
+  entryFee              Decimal?        @db.Decimal(10, 2)
   entries               Entry[]
   matches               Match[]
   pools                 Pool[]

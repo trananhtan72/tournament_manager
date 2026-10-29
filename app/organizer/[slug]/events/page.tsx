@@ -43,6 +43,7 @@ export default async function OrganizerEventsPage({
                 event.knockoutGamesPerMatch,
                 event.knockoutPointsPerGame,
                 event.tieFormatSlots.map((s) => `${s.order}:${s.label}:${s.type}:${s.gamesPerMatch}:${s.pointsPerGame}`).join(","),
+                event.entryFee?.toString() ?? "",
               ].join(":")}
               tournamentSlug={tournament.slug}
               eventId={event.id}
@@ -54,6 +55,7 @@ export default async function OrganizerEventsPage({
               knockoutGamesPerMatch={event.knockoutGamesPerMatch}
               knockoutPointsPerGame={event.knockoutPointsPerGame}
               tieFormatSlots={event.tieFormatSlots}
+              entryFee={event.entryFee?.toString() ?? ""}
               entryCount={event.entries.length}
               pendingApprovalCount={event.entries.filter((e) => e.status === "PENDING_APPROVAL").length}
             />

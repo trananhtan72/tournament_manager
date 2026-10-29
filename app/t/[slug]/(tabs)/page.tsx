@@ -3,7 +3,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { isDoublesCategory } from "@/lib/eventLabels";
+import { categoryLabels } from "@/lib/eventLabels";
 import { formatDate } from "@/lib/formatDate";
 import { effectiveWithdrawalDeadline, registrationStatus, withdrawalIsOpen } from "@/lib/registrationDeadline";
 import { playerName, playerEmail } from "@/lib/playerDisplay";
@@ -12,10 +12,8 @@ import { tournamentPhase } from "@/lib/tournamentPhase";
 import { AutoRefresh } from "@/components/AutoRefresh";
 import { RegulationsContent } from "@/components/RegulationsContent";
 import { RegulationsDialog } from "@/components/RegulationsDialog";
-import {
-  EventRegistrationPanel,
-  type MyEntryInfo,
-} from "@/app/t/[slug]/EventRegistrationPanel";
+import { MyEntryStatus, type MyEntryInfoWithEvent } from "@/app/t/[slug]/EventRegistrationPanel";
+import { RegistrationDialog, type RegistrableEvent, type CurrentPick } from "@/app/t/[slug]/RegistrationDialog";
 
 export async function generateMetadata({ params }: PageProps<"/t/[slug]">): Promise<Metadata> {
   const { slug } = await params;
@@ -70,28 +68,55 @@ export default async function OverviewTab({ params }: PageProps<"/t/[slug]">) {
   const session = await auth();
   const userId = session?.user?.id;
 
+  // TEAM-category events are excluded here: a player's rubber-match
+  // EntryPlayer rows there come from captain/organizer-submitted lineups, not
+  // self-service registration, so they don't belong in this status list.
   const myEntryPlayers = userId
     ? await prisma.entryPlayer.findMany({
-        where: { userId, entry: { event: { tournamentId: tournament.id } } },
+        where: { userId, entry: { event: { tournamentId: tournament.id, category: { not: "TEAM" } } } },
         include: {
           entry: {
-            include: { players: { include: { user: true } } },
+            include: { event: { select: { name: true } }, players: { include: { user: true } } },
           },
         },
       })
     : [];
 
-  const myEntryByEventId = new Map<string, MyEntryInfo>();
+  const drawPublishedByEventId = new Map(tournament.events.map((event) => [event.id, event.drawPublished]));
+
+  const myEntryByEventId = new Map<string, MyEntryInfoWithEvent>();
+  const myInitiatorPicks: CurrentPick[] = [];
   for (const ep of myEntryPlayers) {
     const other = ep.entry.players.find((p) => p.userId !== userId);
+    const otherPlayer = other ? { name: playerName(other), email: playerEmail(other) } : null;
     myEntryByEventId.set(ep.entry.eventId, {
       entryId: ep.entry.id,
+      eventId: ep.entry.eventId,
+      eventName: ep.entry.event.name,
       status: ep.entry.status,
       myRole: ep.role,
       myConfirmed: ep.confirmed,
-      otherPlayer: other ? { name: playerName(other), email: playerEmail(other) } : null,
+      otherPlayer,
+      drawPublished: drawPublishedByEventId.get(ep.entry.eventId) ?? false,
     });
+    if (ep.role === "INITIATOR") {
+      myInitiatorPicks.push({
+        eventId: ep.entry.eventId,
+        eventName: ep.entry.event.name,
+        status: ep.entry.status,
+        otherPlayer,
+      });
+    }
   }
+
+  const registrableEvents: RegistrableEvent[] = tournament.events
+    .filter((event) => event.category !== "TEAM")
+    .map((event) => ({
+      id: event.id,
+      name: event.name,
+      category: event.category,
+      entryFee: event.entryFee?.toString() ?? "",
+    }));
 
   const liveCount = await prisma.match.count({
     where: {
@@ -148,9 +173,9 @@ export default async function OverviewTab({ params }: PageProps<"/t/[slug]">) {
         </dl>
       </section>
 
-      <section aria-labelledby="register-heading" className="flex flex-col gap-3">
-        <h2 id="register-heading" className="text-lg font-semibold">
-          Register
+      <section aria-labelledby="events-heading" className="flex flex-col gap-3">
+        <h2 id="events-heading" className="text-lg font-semibold">
+          Events
         </h2>
         {tournament.events.length === 0 ? (
           <p className="text-sm text-muted">No events have been added yet.</p>
@@ -159,30 +184,57 @@ export default async function OverviewTab({ params }: PageProps<"/t/[slug]">) {
             {tournament.events.map((event) => (
               <li
                 key={event.id}
-                className="flex flex-col gap-3 rounded-md border border-border px-4 py-3"
+                className="flex items-center justify-between gap-2 rounded-md border border-border px-4 py-3"
               >
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col gap-0.5">
                   <span className="font-medium">{event.name}</span>
-                  {event.drawPublished && (
-                    <Link href={`/t/${slug}/${event.id}`} className="text-sm underline">
-                      View draw →
-                    </Link>
-                  )}
+                  <span className="text-sm text-muted">
+                    {categoryLabels[event.category]}
+                    {event.entryFee ? ` · $${event.entryFee.toString()} entry fee` : ""}
+                  </span>
                 </div>
-                <EventRegistrationPanel
-                  eventId={event.id}
-                  isDoubles={isDoublesCategory(event.category)}
-                  registrationStatus={status}
-                  registrationOpensLabel={
-                    tournament.registrationOpensAt ? formatDate(tournament.registrationOpensAt) : null
-                  }
-                  withdrawalOpen={withdrawalOpen}
-                  drawPublished={event.drawPublished}
-                  signedIn={Boolean(userId)}
-                  myEntry={myEntryByEventId.get(event.id) ?? null}
-                  tournamentName={tournament.name}
-                  regulations={regulations}
-                />
+                {event.drawPublished && (
+                  <Link href={`/t/${slug}/${event.id}`} className="text-sm underline">
+                    View draw →
+                  </Link>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <section aria-labelledby="register-heading" className="flex flex-col gap-3">
+        <h2 id="register-heading" className="text-lg font-semibold">
+          Register
+        </h2>
+        {status === "not_open" ? (
+          <p className="text-sm text-muted">
+            Registration opens
+            {tournament.registrationOpensAt ? ` on ${formatDate(tournament.registrationOpensAt)}` : " soon"}.
+          </p>
+        ) : status === "closed" ? (
+          <p className="text-sm text-muted">Registration is closed.</p>
+        ) : !userId ? (
+          <Link href={`/signin?callbackUrl=${encodeURIComponent(`/t/${slug}`)}`} className="text-sm underline">
+            Sign in to register
+          </Link>
+        ) : registrableEvents.length === 0 ? (
+          <p className="text-sm text-muted">No events are open for registration yet.</p>
+        ) : (
+          <RegistrationDialog
+            tournamentId={tournament.id}
+            maxEventsPerUser={tournament.maxEventsPerUser}
+            registrableEvents={registrableEvents}
+            currentPicks={myInitiatorPicks}
+            regulations={regulations}
+          />
+        )}
+        {myEntryByEventId.size > 0 && (
+          <ul className="flex flex-col gap-3">
+            {[...myEntryByEventId.values()].map((entry) => (
+              <li key={entry.entryId}>
+                <MyEntryStatus entry={entry} withdrawalOpen={withdrawalOpen} drawPublished={entry.drawPublished} />
               </li>
             ))}
           </ul>

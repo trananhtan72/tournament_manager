@@ -10,6 +10,7 @@ import { slugify } from "@/lib/slugify";
 import { requireUserId } from "@/lib/session";
 import { canCreateTournaments, NOT_AUTHORIZED_TO_CREATE_TOURNAMENT } from "@/lib/roles";
 import { MAX_COURTS, MIN_COURTS } from "@/lib/tournament/courts";
+import { MAX_EVENTS_PER_USER, MIN_EVENTS_PER_USER } from "@/lib/tournament/registrationLimits";
 import {
   MAX_REGULATIONS_JSON_LENGTH,
   isRegulationsEmpty,
@@ -39,6 +40,15 @@ const tournamentSchema = z
       .int({ error: `The number of courts must be between ${MIN_COURTS} and ${MAX_COURTS}` })
       .min(MIN_COURTS, { error: `The number of courts must be between ${MIN_COURTS} and ${MAX_COURTS}` })
       .max(MAX_COURTS, { error: `The number of courts must be between ${MIN_COURTS} and ${MAX_COURTS}` }),
+    maxEventsPerUser: z.coerce
+      .number({ error: `Max events per player must be between ${MIN_EVENTS_PER_USER} and ${MAX_EVENTS_PER_USER}` })
+      .int({ error: `Max events per player must be between ${MIN_EVENTS_PER_USER} and ${MAX_EVENTS_PER_USER}` })
+      .min(MIN_EVENTS_PER_USER, {
+        error: `Max events per player must be between ${MIN_EVENTS_PER_USER} and ${MAX_EVENTS_PER_USER}`,
+      })
+      .max(MAX_EVENTS_PER_USER, {
+        error: `Max events per player must be between ${MIN_EVENTS_PER_USER} and ${MAX_EVENTS_PER_USER}`,
+      }),
     registrationOpensAt: optionalDate("Enter a valid date for when entries open"),
     withdrawalDeadline: optionalDate("Enter a valid withdrawal deadline"),
   })
@@ -71,6 +81,7 @@ function tournamentFormValues(formData: FormData) {
     endDate: formData.get("endDate"),
     registrationDeadline: formData.get("registrationDeadline"),
     courtCount: formData.get("courtCount"),
+    maxEventsPerUser: formData.get("maxEventsPerUser"),
     registrationOpensAt: formData.get("registrationOpensAt") ?? "",
     withdrawalDeadline: formData.get("withdrawalDeadline") ?? "",
   };
